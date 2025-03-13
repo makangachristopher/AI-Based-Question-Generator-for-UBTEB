@@ -1,0 +1,17 @@
+Flask
+Flask-Login
+Flask-WTF
+WTForms
+PyPDF2
+python-docx
+reportlab
+transformers
+nltk
+scikit-learn
+python-dotenv
+Werkzeug
+email-validator
+Flask-SQLAlchemy
+SQLAlchemy
+bcrypt
+pdfkit
