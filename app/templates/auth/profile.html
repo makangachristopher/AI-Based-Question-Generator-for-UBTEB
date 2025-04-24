@@ -52,14 +52,14 @@
                         <div class="list-group mb-4">
                             {% for document in user.documents|sort(attribute='created_at', reverse=True) %}
                                 {% if loop.index <= 5 %}
-                                    <a href="{{ url_for('questions.view_document', document_id=document.id) }}" class="list-group-item list-group-item-action">
-                                        <div class="d-flex w-100 justify-content-between">
-                                            <h6 class="mb-1">{{ document.title }}</h6>
-                                            <small>{{ document.created_at.strftime('%Y-%m-%d') }}</small>
-                                        </div>
-                                        <p class="mb-1">{{ document.questions|length }} questions generated</p>
-                                        <small>{{ document.filename }}</small>
-                                    </a>
+                                <a href="{{ url_for('questions.view_document', document_id=document.id) }}" class="list-group-item list-group-item-action">
+                                    <div class="d-flex w-100 justify-content-between">
+                                        <h6 class="mb-1">{{ document.title }}</h6>
+                                        <small>{{ document.created_at.strftime('%Y-%m-%d') }}</small>
+                                    </div>
+                                    <p class="mb-1">{{ document.questions|length }} questions generated</p>
+                                    <small>{{ document.filename }}</small>
+                                </a>
                                 {% endif %}
                             {% endfor %}
                         </div>

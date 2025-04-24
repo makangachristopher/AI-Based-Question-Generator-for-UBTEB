@@ -44,6 +44,7 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                             <form action="{{ url_for('questions.delete_document', document_id=document.id) }}" method="POST" class="d-inline">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                 <button type="submit" class="btn btn-danger">Delete</button>
                             </form>
                         </div>
@@ -204,4 +205,36 @@
         </div>
     </div>
 </div>
+
+<!-- Direct form submission method as a fallback -->
+<div style="display: none;">
+    <form id="direct-delete-form" action="{{ url_for('questions.delete_document', document_id=document.id) }}" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Ensure document delete form works without interruption
+document.addEventListener('DOMContentLoaded', function() {
+    var deleteForm = document.querySelector('form[action*="delete_document"]');
+    if (deleteForm) {
+        // Remove any existing event listeners by cloning and replacing the form
+        var newDeleteForm = deleteForm.cloneNode(true);
+        deleteForm.parentNode.replaceChild(newDeleteForm, deleteForm);
+    }
+    
+    // Add a way to trigger the direct form if needed
+    var deleteButton = document.querySelector('button[data-bs-target="#deleteDocumentModal"]');
+    if (deleteButton) {
+        deleteButton.addEventListener('dblclick', function(e) {
+            // Double-click will bypass the modal and submit directly (emergency backup)
+            if (confirm('Bypass modal and delete document directly?')) {
+                document.getElementById('direct-delete-form').submit();
+            }
+        });
+    }
+});
+</script>
 {% endblock %} 

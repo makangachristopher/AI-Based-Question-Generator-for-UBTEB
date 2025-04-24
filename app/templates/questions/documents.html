@@ -80,47 +80,12 @@
                                                         </a>
                                                     {% endif %}
                                                     <button type="button" 
-                                                            class="btn btn-sm btn-outline-danger" 
-                                                            data-bs-toggle="modal" 
-                                                            data-bs-target="#deleteModal{{ document.id }}"
+                                                            class="btn btn-sm btn-outline-danger delete-doc-btn"
+                                                            data-document-id="{{ document.id }}"
+                                                            data-document-title="{{ document.title }}"
                                                             title="Delete Document">
                                                         <i class="fas fa-trash"></i>
                                                     </button>
-                                                </div>
-                                            
-                                                <!-- Delete Modal -->
-                                                <div class="modal fade" 
-                                                     id="deleteModal{{ document.id }}" 
-                                                     tabindex="-1" 
-                                                     aria-labelledby="deleteModalLabel{{ document.id }}" 
-                                                     aria-hidden="true">
-                                                    <div class="modal-dialog">
-                                                        <div class="modal-content">
-                                                            <div class="modal-header">
-                                                                <h5 class="modal-title" id="deleteModalLabel{{ document.id }}">
-                                                                    Confirm Delete
-                                                                </h5>
-                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                            </div>
-                                                            <div class="modal-body">
-                                                                <p>Are you sure you want to delete the document "{{ document.title }}"?</p>
-                                                                <p class="text-danger">
-                                                                    This will also delete all associated questions and cannot be undone.
-                                                                </p>
-                                                            </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                                                    Cancel
-                                                                </button>
-                                                                <form action="{{ url_for('questions.delete_document', document_id=document.id) }}" 
-                                                                      method="POST" 
-                                                                      style="display: inline;">
-                                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
-                                                                    <button type="submit" class="btn btn-danger">Delete</button>
-                                                                </form>
-                                                            </div>
-                                                        </div>
-                                                    </div>
                                                 </div>
                                             </td>
                                         </tr>
@@ -149,28 +114,87 @@
         </div>
     {% endif %}
 </div>
+
+<!-- Single Global Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the document "<span id="documentTitle"></span>"?</p>
+                <p class="text-danger">This will also delete all associated questions and cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteDocumentForm" action="" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form for direct submission if all else fails -->
+<div style="display:none">
+    <form id="emergencyDeleteForm" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    </form>
+</div>
 {% endblock %}
 
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize all modals
-    var modals = document.querySelectorAll('.modal');
-    modals.forEach(function(modal) {
-        new bootstrap.Modal(modal);
-    });
-
-    // Add event listeners for delete forms
-    var deleteForms = document.querySelectorAll('form[action*="delete_document"]');
-    deleteForms.forEach(function(form) {
-        form.addEventListener('submit', function(e) {
-            e.preventDefault();
-            var confirmDelete = confirm('Are you sure you want to delete this document? This action cannot be undone.');
-            if (confirmDelete) {
-                this.submit();
-            }
+    // Get the modal element
+    var deleteModal = document.getElementById('deleteConfirmModal');
+    var deleteForm = document.getElementById('deleteDocumentForm');
+    var documentTitleSpan = document.getElementById('documentTitle');
+    var emergencyForm = document.getElementById('emergencyDeleteForm');
+    
+    // Get all delete buttons
+    var deleteButtons = document.querySelectorAll('.delete-doc-btn');
+    
+    // Create the Bootstrap modal instance
+    var confirmModal = new bootstrap.Modal(deleteModal);
+    
+    // Add click event to all delete buttons
+    deleteButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+            var documentId = this.getAttribute('data-document-id');
+            var documentTitle = this.getAttribute('data-document-title');
+            
+            // Set the document title in the modal
+            documentTitleSpan.textContent = documentTitle;
+            
+            // Set the form action URL
+            deleteForm.action = "/document/" + documentId + "/delete";
+            
+            // Show the modal
+            confirmModal.show();
         });
     });
+    
+    // Ensure the form submits when the delete button in the modal is clicked
+    deleteForm.addEventListener('submit', function(e) {
+        // Hide the modal before submitting to avoid any modal-related issues
+        confirmModal.hide();
+        
+        // No preventDefault - let the form submit normally
+    });
+    
+    // Emergency delete function - accessible from console if needed
+    window.emergencyDeleteDocument = function(documentId) {
+        if (confirm('Emergency delete: Are you sure?')) {
+            emergencyForm.action = "/document/" + documentId + "/delete";
+            emergencyForm.submit();
+        }
+    };
+    
+    console.log("Document management page initialized successfully");
 });
 </script>
 {% endblock %} 

@@ -80,6 +80,7 @@ def generate_questions(text, num_questions=5, question_type='both', difficulty='
             difficulty
         )
         return mc_questions + structured_questions
+
 def generate_structured_questions(sentences, num_questions, difficulty):
     """Generate structured questions from sentences"""
     questions = []
@@ -90,39 +91,42 @@ def generate_structured_questions(sentences, num_questions, difficulty):
             break
             
         context = sentences[i]
+        question_text = None # Initialize question_text to None
+        answer = None # Initialize answer to None
         
         # Modified prompt to be more explicit about single question generation
         prompt = f"Generate exactly one question from this text. Do not generate multiple questions or use separators: {context}"
         
         # Try up to 3 times to get a clean single question
         for attempt in range(3):
-            question_text = question_generator(
-                prompt, 
-                max_length=64, 
+            generated_output = question_generator(
+                prompt,
+                max_length=64,
                 num_return_sequences=1,
                 do_sample=True,
-                temperature=0.6,
+                temperature=0.6, # Slightly lower temperature for more focused output
                 top_p=0.85,
                 no_repeat_ngram_size=3,
-                early_stopping=True  # Add early stopping to prevent multiple questions
+                early_stopping=True # Enable early stopping
             )[0]['generated_text']
             
             # Clean and validate the question
-            cleaned_question = clean_question_text(question_text)
+            cleaned_question = clean_question_text(generated_output)
             if cleaned_question and '?' in cleaned_question:
                 # Verify the answer exists in the context
-                answer = answer_generator(
-                    question=cleaned_question, 
+                potential_answer = answer_generator(
+                    question=cleaned_question,
                     context=context
                 )
                 
                 # Only accept questions where the answer confidence is high
-                if answer['score'] > 0.7:
+                if potential_answer['score'] > 0.7:
                     question_text = cleaned_question
-                    break
+                    answer = potential_answer
+                    break # Got a good question, exit retry loop
         
         # Only proceed if we have a valid question with a confident answer
-        if question_text and '?' in question_text:
+        if question_text and answer:
             questions.append({
                 'question': question_text,
                 'answer': answer['answer'],
@@ -131,9 +135,11 @@ def generate_structured_questions(sentences, num_questions, difficulty):
                 'confidence': answer['score']
             })
         
+        # Stop if we have generated enough questions
         if len(questions) >= num_questions:
             break
     
+    # Return only the requested number of questions
     return questions[:num_questions]
 
 def generate_multiple_choice_questions(sentences, num_questions, difficulty):
@@ -249,39 +255,51 @@ The options should be different from: {correct_answer}"""
 
 def clean_question_text(text):
     """Clean up generated question text to ensure only one question is returned"""
-    # First, split on <sep> token and take only the first part
+    # First, split on <sep> token if present and take the first part
     if '<sep>' in text:
-        text = text.split('<sep>')[0]
+        text = text.split('<sep>')[0].strip()
     
-    # Remove common prefixes and formatting
-    text = re.sub(r'^(Q:|Question:|A:|Answer:|\d+[\.\)]|\-|\*)\s*', '', text, flags=re.IGNORECASE)
+    # Remove common prefixes and formatting that might indicate multiple items
+    text = re.sub(r'^(Q:|Question:|A:|Answer:|\\d+[\\.\\)]|\\-|\\*)\\s*', '', text, flags=re.IGNORECASE).strip()
     
-    # Split on common question separators (newlines, numbers, etc.)
-    questions = re.split(r'(?:\d+[\.\)])|(?:\n+)|(?:Question:)', text)
+    # Split by newline, periods followed by space (if not ending the string), or question marks (if not ending)
+    # Prioritize splitting by newline as it often separates distinct generated questions
+    potential_questions = re.split(r'\\n+|(?<!\\w)\\.\\s+(?=\\w)|\\?(?!$)', text)
     
-    # Clean up and take only the first question
-    questions = [q.strip() for q in questions if q.strip()]
-    if not questions:
-        return None
-        
-    # Take the first question
-    question = questions[0]
+    # Find the first valid-looking question
+    question = None
+    for pq in potential_questions:
+        pq = pq.strip()
+        if len(pq.split()) >= 3 and '?' in pq: # Check length and presence of question mark
+            question = pq
+            break
+        elif len(pq.split()) >= 3 and not '?' in pq: # Check if it's just missing a question mark
+            question = pq + '?'
+            break
     
-    # Remove any remaining numbering or bullets
-    question = re.sub(r'^[\d\-\.\)\•\*]+\s*', '', question)
+    if not question:
+        # Fallback if splitting didn't find a clear question
+        # Take the original text if it looks plausible, otherwise return None
+        if len(text.split()) >= 3:
+            question = text
+        else:
+            return None
     
-    # Clean up whitespace
-    question = ' '.join(question.split())
+    # Further cleanup on the selected question
+    # Remove any remaining leading numbering/bullets
+    question = re.sub(r'^[\\d\\-\\.\\)\\•\\*]+\\s*', '', question).strip()
     
-    # Validate the question
-    if len(question.split()) < 3:  # Too short
-        return None
-        
-    if not question.endswith('?'):  # Add question mark if missing
+    # Ensure it ends with a single question mark
+    question = question.rstrip('. ')
+    if not question.endswith('?'):
         question += '?'
-        
-    if question.count('?') > 1:  # Multiple questions
-        # Take only up to the first question mark
+    
+    # Handle cases where multiple question marks might still exist
+    if question.count('?') > 1:
         question = question.split('?')[0] + '?'
+    
+    # Final length check
+    if len(question.split()) < 3:
+        return None
     
     return question
