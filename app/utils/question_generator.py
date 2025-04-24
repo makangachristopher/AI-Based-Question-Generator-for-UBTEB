@@ -134,6 +134,8 @@ def ensure_question_count(questions, target_count, question_type, sentences, dif
         
     # If we have too many questions, trim to the target count
     if len(questions) > target_count:
+        # Sort by confidence score to keep the best questions
+        questions.sort(key=lambda q: q['confidence'], reverse=True)
         return questions[:target_count]
         
     # If we have too few questions, we need to generate more
@@ -163,31 +165,63 @@ def ensure_question_count(questions, target_count, question_type, sentences, dif
             difficulty
         )
     
-    # If we still don't have enough, fall back to generating generic questions
+    # If we still don't have enough, create context-based questions instead of generic ones
     still_needed = target_count - (len(questions) + len(additional_questions))
     if still_needed > 0:
         for i in range(still_needed):
-            context = random.choice(sentences)
-            if question_type == 'multiple_choice':
-                # Generic multiple choice question as fallback
-                answer = "Option A"
-                additional_questions.append({
-                    'question': f"Question {len(questions) + len(additional_questions) + 1} about: {context[:50]}...?",
-                    'answer': answer,
-                    'options': [answer, "Option B", "Option C", "Option D"],
-                    'context': context,
-                    'type': 'multiple_choice',
-                    'confidence': 1.0
-                })
+            # Pick a sentence we haven't used or the most information-rich one
+            sentence_scores = [(s, len(s.split())) for s in sentences if s not in [q['context'] for q in questions + additional_questions]]
+            if not sentence_scores:
+                sentence_scores = [(s, len(s.split())) for s in sentences]
+                
+            sentence_scores.sort(key=lambda x: x[1], reverse=True)
+            if sentence_scores:
+                context = sentence_scores[0][0]
             else:
-                # Generic structured question as fallback
-                additional_questions.append({
-                    'question': f"Question {len(questions) + len(additional_questions) + 1} about: {context[:50]}...?",
-                    'answer': "Answer based on the context.",
-                    'context': context,
-                    'type': 'structured',
-                    'confidence': 1.0
-                })
+                context = random.choice(sentences)
+                
+            # Extract key information from the context
+            words = context.split()
+            if len(words) >= 5:
+                subject_idx = random.randint(0, len(words) // 3)
+                subject = words[subject_idx]
+                
+                if question_type == 'multiple_choice':
+                    question_text = f"What does the text say about {subject}?"
+                    options = [
+                        " ".join(words[subject_idx:subject_idx+3]),
+                        " ".join(words[subject_idx:subject_idx+2]),
+                        " ".join(words[max(0, subject_idx-2):subject_idx]),
+                        " ".join(words[min(len(words)-3, subject_idx+3):min(len(words), subject_idx+6)])
+                    ]
+                    random.shuffle(options)
+                    answer = options[0]
+                    
+                    additional_questions.append({
+                        'question': question_text,
+                        'answer': answer,
+                        'options': options,
+                        'context': context,
+                        'type': 'multiple_choice',
+                        'confidence': 0.8
+                    })
+                else:
+                    # Create a factual question directly from the text
+                    if len(words) > 10:
+                        answer_idx = random.randint(len(words)//2, min(len(words)-1, len(words)//2 + 5))
+                        answer = words[answer_idx]
+                        question_text = f"According to the text, what comes after '{' '.join(words[max(0, answer_idx-3):answer_idx])}'?"
+                    else:
+                        question_text = f"What information does the text provide about {subject}?"
+                        answer = context
+                        
+                    additional_questions.append({
+                        'question': question_text,
+                        'answer': answer,
+                        'context': context,
+                        'type': 'structured',
+                        'confidence': 0.8
+                    })
     
     # Combine original questions with additional ones
     return questions + additional_questions[:additional_needed]
@@ -213,38 +247,40 @@ def generate_structured_questions(sentences, num_questions, difficulty):
         question_text = None
         answer = None
         
-        # Modified prompt to be more explicit about single question generation
-        prompt = f"Generate exactly one question from this text. The question must be answerable from the text. Do not generate multiple questions: {context}"
+        # Modified prompt to strongly enforce staying within the content (anti-hallucination)
+        prompt = f"Generate exactly one question from this SPECIFIC text. The question MUST be answerable ONLY from the text provided. Do not make up information or add external knowledge: {context}"
         
         # Try multiple times per sentence to get a valid question
         for attempt in range(max_attempts_per_sentence):
             generated_output = question_generator(
-                prompt,
-                max_length=64,
+                prompt, 
+                max_length=64, 
                 num_return_sequences=1,
                 do_sample=True,
-                temperature=0.6, # Slightly lower temperature for more focused output
+                temperature=0.5,  # Lower temperature to reduce creativity/hallucination
                 top_p=0.85,
                 no_repeat_ngram_size=3,
-                early_stopping=True # Enable early stopping
+                early_stopping=True  # Enable early stopping
             )[0]['generated_text']
             
             # Clean and validate the question
             cleaned_question = clean_question_text(generated_output)
             if cleaned_question and '?' in cleaned_question:
-                # Verify the answer exists in the context
+                # Verify the answer exists in the context with higher threshold
                 potential_answer = answer_generator(
                     question=cleaned_question,
                     context=context
                 )
                 
-                # Accept questions with lower confidence if we're struggling to generate enough
-                confidence_threshold = 0.5 if len(questions) < num_questions / 2 else 0.7
+                # Stricter confidence threshold to ensure only relevant questions
+                confidence_threshold = 0.6
                 
                 if potential_answer['score'] > confidence_threshold:
-                    question_text = cleaned_question
-                    answer = potential_answer
-                    break # Got a good question, exit retry loop
+                    # Verify answer appears literally in the context
+                    if potential_answer['answer'] in context:
+                        question_text = cleaned_question
+                        answer = potential_answer
+                        break  # Got a good question, exit retry loop
         
         # Only add new questions if they're different from existing ones
         if question_text and answer:
@@ -290,8 +326,8 @@ def generate_multiple_choice_questions(sentences, num_questions, difficulty):
             
         context = sentences[i]
         
-        # Modified prompt to ensure relevance and clarity about generating MC questions
-        prompt = f"Based on this specific text, generate one multiple choice question with 4 options that can be answered directly from the text: {context}"
+        # Modified prompt to strictly enforce relevance to the context (anti-hallucination)
+        prompt = f"Based ONLY on this SPECIFIC text, generate one multiple choice question with 4 options. The question and correct answer MUST be factually contained within the text. Do not make up any information: {context}"
         
         # Try multiple times per sentence to get a valid question
         for attempt in range(max_attempts_per_sentence):
@@ -300,7 +336,7 @@ def generate_multiple_choice_questions(sentences, num_questions, difficulty):
                 max_length=64, 
                 num_return_sequences=1,
                 do_sample=True,
-                temperature=0.6,  # Reduced temperature
+                temperature=0.5,  # Lower temperature to reduce creativity/hallucination
                 top_p=0.85,
                 no_repeat_ngram_size=3
             )[0]['generated_text']
@@ -314,44 +350,46 @@ def generate_multiple_choice_questions(sentences, num_questions, difficulty):
                     context=context
                 )
                 
-                # Accept questions with lower confidence if we're struggling to generate enough
-                confidence_threshold = 0.5 if len(questions) < num_questions / 2 else 0.7
+                # Stricter confidence threshold to ensure only relevant questions
+                confidence_threshold = 0.6
                 
                 if answer_result['score'] > confidence_threshold:
-                    question_text = cleaned_question
-                    correct_answer = answer_result['answer']
-                    
-                    # Check if this question is too similar to ones we already have
-                    is_duplicate = False
-                    for existing_q in questions:
-                        # Basic similarity check - if questions share many words
-                        existing_words = set(existing_q['question'].lower().split())
-                        new_words = set(question_text.lower().split())
-                        overlap = len(existing_words.intersection(new_words)) / len(existing_words.union(new_words))
+                    # Verify answer appears literally in the context
+                    if answer_result['answer'] in context:
+                        question_text = cleaned_question
+                        correct_answer = answer_result['answer']
                         
-                        if overlap > 0.7:  # More than 70% word overlap
-                            is_duplicate = True
-                            break
+                        # Check if this question is too similar to ones we already have
+                        is_duplicate = False
+                        for existing_q in questions:
+                            # Basic similarity check - if questions share many words
+                            existing_words = set(existing_q['question'].lower().split())
+                            new_words = set(question_text.lower().split())
+                            overlap = len(existing_words.intersection(new_words)) / len(existing_words.union(new_words))
                             
-                    if not is_duplicate:
-                        # Generate distractors based on the context
-                        distractors = generate_distractors(context, correct_answer, difficulty)
-                        
-                        # Combine correct answer and distractors
-                        options = [correct_answer] + distractors[:3]
-                        random.shuffle(options)
-                        
-                        questions.append({
-                            'question': question_text,
-                            'answer': correct_answer,
-                            'options': options,
-                            'context': context,
-                            'type': 'multiple_choice',
-                            'confidence': answer_result['score']
-                        })
-                        
-                        # Break out of the retry loop since we got a good question
-                        break
+                            if overlap > 0.7:  # More than 70% word overlap
+                                is_duplicate = True
+                                break
+                                
+                        if not is_duplicate:
+                            # Generate distractors based on the context
+                            distractors = generate_distractors(context, correct_answer, difficulty)
+                            
+                            # Combine correct answer and distractors
+                            options = [correct_answer] + distractors[:3]
+                            random.shuffle(options)
+                            
+                            questions.append({
+                                'question': question_text,
+                                'answer': correct_answer,
+                                'options': options,
+                                'context': context,
+                                'type': 'multiple_choice',
+                                'confidence': answer_result['score']
+                            })
+                            
+                            # Break out of the retry loop since we got a good question
+                            break
     
     # Return the number of questions requested, or as many as we could generate
     return questions[:num_questions]
@@ -359,17 +397,18 @@ def generate_multiple_choice_questions(sentences, num_questions, difficulty):
 def generate_distractors(context, correct_answer, difficulty):
     """Generate wrong options for multiple choice questions"""
     # Adjust temperature based on difficulty
-    temp = 0.6  # Reduced default temperature
+    temp = 0.5  # Lower temperature to reduce hallucination
     if difficulty == 'easy':
-        temp = 0.5
+        temp = 0.4
     elif difficulty == 'hard':
-        temp = 0.7
+        temp = 0.6
     
-    # Modified prompt to ensure relevant distractors
-    prompt = f"""Based on this text: {context}
-Generate 3 plausible but incorrect answer options that are related to the context.
+    # Modified prompt to enforce context-based distractors and prevent hallucination
+    prompt = f"""Based ONLY on this text: {context}
+Generate 3 plausible but incorrect answer options that are closely related to the context.
 Correct answer: {correct_answer}
-The options should be different from: {correct_answer}"""
+The options MUST be mentioned in or derived from the text and be different from: {correct_answer}
+Do not make up any information that's not in the text."""
     
     results = question_generator(
         prompt,
@@ -388,18 +427,33 @@ The options should be different from: {correct_answer}"""
             # Remove any numbering or bullet points
             clean_line = re.sub(r'^[\d\-\.\)\•\*]+\s*', '', line)
             if clean_line and clean_line not in distractors and clean_line != correct_answer:
-                distractors.append(clean_line)
+                # Only add distractor if it's somehow related to the context
+                if any(word in context.lower() for word in clean_line.lower().split() if len(word) > 3):
+                    distractors.append(clean_line)
     
-    # If we didn't get enough distractors, generate some based on the context
+    # If we didn't get enough distractors, generate some based on text extraction
     while len(distractors) < 3:
-        # Use answer_generator to find other entities in the context
-        probe_question = f"What is another {correct_answer.split()[0]} mentioned in the text?"
-        probe_answer = answer_generator(question=probe_question, context=context)
-        if probe_answer['answer'] and probe_answer['answer'] != correct_answer:
-            distractors.append(probe_answer['answer'])
-        else:
-            generic = f"Alternative option {len(distractors) + 1}"
-            distractors.append(generic)
+        # Extract noun phrases or entities from context
+        words = context.split()
+        if len(words) > 5:
+            # Try to extract a phrase from the context that's not the answer
+            start_idx = random.randint(0, len(words) - 3)
+            phrase_length = random.randint(1, 3)
+            phrase = " ".join(words[start_idx:start_idx + phrase_length])
+            
+            if phrase and phrase != correct_answer and phrase not in distractors:
+                distractors.append(phrase)
+            else:
+                # Fall back to a word-based distractor that appears in the context
+                context_words = [word for word in words if len(word) > 3 and word.lower() not in correct_answer.lower()]
+                if context_words:
+                    distractor = random.choice(context_words)
+                    if distractor not in distractors:
+                        distractors.append(distractor)
+                else:
+                    # Last resort
+                    generic = f"Alternative from text {len(distractors) + 1}"
+                    distractors.append(generic)
     
     return distractors[:3]
 
