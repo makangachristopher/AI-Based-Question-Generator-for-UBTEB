@@ -92,26 +92,27 @@
                                                     <i class="fas fa-trash me-1"></i>Delete
                                                 </button>
                                             </div>
-                                            
-                                            <!-- Delete Question Modal -->
-                                            <div class="modal fade" id="deleteQuestionModal{{ question.id }}" tabindex="-1" aria-labelledby="deleteQuestionModalLabel{{ question.id }}" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="deleteQuestionModalLabel{{ question.id }}">Confirm Delete</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            Are you sure you want to delete this question? This action cannot be undone.
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                            <form action="{{ url_for('questions.delete_question', question_id=question.id) }}" method="POST" class="d-inline">
-                                                                <button type="submit" class="btn btn-danger">Delete</button>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-                                                </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Move Delete Question Modal outside the accordion item to prevent DOM issues -->
+                                <div class="modal fade" id="deleteQuestionModal{{ question.id }}" tabindex="-1" aria-labelledby="deleteQuestionModalLabel{{ question.id }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="deleteQuestionModalLabel{{ question.id }}">Confirm Delete</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Are you sure you want to delete this question? This action cannot be undone.
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                <form action="{{ url_for('questions.delete_question', question_id=question.id) }}" method="POST" data-question-id="{{ question.id }}" class="delete-question-form">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-danger">Delete</button>
+                                                </form>
                                             </div>
                                         </div>
                                     </div>
@@ -139,4 +140,86 @@
         </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Global modals container to prevent them from being affected by accordion
+    var modalsContainer = document.createElement('div');
+    modalsContainer.id = 'globalModalsContainer';
+    document.body.appendChild(modalsContainer);
+    
+    // Move all modals to the global container
+    var deleteModals = document.querySelectorAll('.modal[id^="deleteQuestionModal"]');
+    deleteModals.forEach(function(modal) {
+        modalsContainer.appendChild(modal);
+    });
+    
+    // Handle delete buttons and forms
+    var deleteForms = document.querySelectorAll('form.delete-question-form');
+    
+    deleteForms.forEach(function(form) {
+        // Ensure clean submission - no event listeners
+        var newForm = form.cloneNode(true);
+        form.parentNode.replaceChild(newForm, form);
+        
+        // Add a submit handler that properly closes the modal first
+        newForm.addEventListener('submit', function(e) {
+            // Prevent the default submission to handle it properly
+            e.preventDefault();
+            
+            // Get the modal and close it
+            var modal = this.closest('.modal');
+            var modalId = modal.id;
+            var bsModal = bootstrap.Modal.getInstance(modal);
+            
+            if (bsModal) {
+                bsModal.hide();
+                
+                // Submit the form after modal is hidden
+                setTimeout(function() {
+                    newForm.submit();
+                }, 300); // Short delay to allow modal animation to complete
+            } else {
+                // If no modal instance, just submit
+                newForm.submit();
+            }
+        });
+    });
+    
+    // Ensure delete buttons properly trigger their modals
+    var deleteButtons = document.querySelectorAll('button[data-bs-target^="#deleteQuestionModal"]');
+    deleteButtons.forEach(function(button) {
+        button.addEventListener('click', function(e) {
+            var targetId = this.getAttribute('data-bs-target');
+            var modal = document.querySelector(targetId);
+            
+            if (modal) {
+                var bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+            }
+        });
+    });
+    
+    // Alternative direct delete for emergencies - can be triggered from browser console
+    window.deleteQuestion = function(questionId) {
+        if (confirm('Are you sure you want to delete this question?')) {
+            var form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/questions/' + questionId + '/delete';
+            form.style.display = 'none';
+            
+            var csrfToken = document.createElement('input');
+            csrfToken.type = 'hidden';
+            csrfToken.name = 'csrf_token';
+            csrfToken.value = '{{ csrf_token() }}';
+            
+            form.appendChild(csrfToken);
+            document.body.appendChild(form);
+            form.submit();
+        }
+    };
+});
+</script>
 {% endblock %} 
