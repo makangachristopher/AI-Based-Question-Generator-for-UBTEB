@@ -20,8 +20,9 @@
         <div class="col-md-8 mx-auto">
             <div class="card shadow">
                 <div class="card-body p-4">
-                    <form method="POST" enctype="multipart/form-data">
+                    <form method="POST" enctype="multipart/form-data" action="">
                         {{ form.hidden_tag() }}
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         
                         <div class="mb-4">
                             {{ form.title.label(class="form-label") }}

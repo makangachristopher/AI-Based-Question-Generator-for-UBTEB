@@ -13,7 +13,7 @@
                     <li class="breadcrumb-item active" aria-current="page">Generate Questions</li>
                 </ol>
             </nav>
-            <h1 class="mb-3">Generate Questions</h1>
+            <h1 class="mb-3">Generate UBTEB Exam Questions</h1>
             <p class="lead">Configure the question generation settings for "{{ document.title }}".</p>
         </div>
     </div>
@@ -28,38 +28,13 @@
                     <form method="POST" action="">
                         {{ form.hidden_tag() }}
                         
-                        <div class="mb-3">
-                            {{ form.num_questions.label(class="form-label") }}
-                            {% if form.num_questions.errors %}
-                                {{ form.num_questions(class="form-control is-invalid") }}
-                                <div class="invalid-feedback">
-                                    {% for error in form.num_questions.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                {{ form.num_questions(class="form-control") }}
-                            {% endif %}
-                            <div class="form-text">Choose how many questions to generate (1-50).</div>
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ form.question_type.label(class="form-label") }}
-                            {% if form.question_type.errors %}
-                                {{ form.question_type(class="form-select is-invalid") }}
-                                <div class="invalid-feedback">
-                                    {% for error in form.question_type.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% else %}
-                                {{ form.question_type(class="form-select") }}
-                            {% endif %}
-                            <div class="form-text">
-                                <strong>Multiple Choice:</strong> Questions with 4 options<br>
-                                <strong>Structured:</strong> Open-ended questions with answers<br>
-                                <strong>Both:</strong> A mix of multiple choice and structured questions
-                            </div>
+                        <div class="alert alert-info mb-4">
+                            <h5><i class="fas fa-info-circle me-2"></i>UBTEB Exam Format</h5>
+                            <p class="mb-2">Questions will be generated according to the UBTEB exam format:</p>
+                            <ul class="mb-0">
+                                <li><strong>Section A:</strong> 10 short answer questions - 2 marks each (20 marks total)</li>
+                                <li><strong>Section B:</strong> 5 essay questions - 20 marks each (answer any 4 for 80 marks total)</li>
+                            </ul>
                         </div>
                         
                         <div class="mb-4">
@@ -82,7 +57,7 @@
                             </div>
                         </div>
                         
-                        <div class="alert alert-info mb-4">
+                        <div class="alert alert-warning mb-4">
                             <i class="fas fa-info-circle me-2"></i>
                             Question generation may take a few moments depending on the document size and complexity.
                         </div>
@@ -105,32 +80,25 @@
                     <p><strong>Filename:</strong> {{ document.filename }}</p>
                     <p><strong>Uploaded:</strong> {{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
                     <p><strong>Content Length:</strong> {{ document.content|length }} characters</p>
+                    {% if document.course %}
+                    <p><strong>Course:</strong> {{ document.course.title }}</p>
+                    {% endif %}
                 </div>
             </div>
             
             <div class="card">
                 <div class="card-header bg-light">
-                    <h5 class="mb-0">Tips for Better Questions</h5>
+                    <h5 class="mb-0">UBTEB Exam Structure</h5>
                 </div>
                 <div class="card-body">
-                    <ul class="list-group list-group-flush">
-                        <li class="list-group-item">
-                            <i class="fas fa-lightbulb text-warning me-2"></i>
-                            For factual content, multiple-choice questions work best.
-                        </li>
-                        <li class="list-group-item">
-                            <i class="fas fa-lightbulb text-warning me-2"></i>
-                            For conceptual content, structured questions are more effective.
-                        </li>
-                        <li class="list-group-item">
-                            <i class="fas fa-lightbulb text-warning me-2"></i>
-                            Start with a smaller number of questions to test the quality.
-                        </li>
-                        <li class="list-group-item">
-                            <i class="fas fa-lightbulb text-warning me-2"></i>
-                            You can always edit questions after generation.
-                        </li>
-                    </ul>
+                    <div class="mb-3">
+                        <h6 class="fw-bold">Section A (20 Marks)</h6>
+                        <p>Section A will contain 10 short answer questions worth 2 marks each. These questions are designed to test basic knowledge and understanding, and do not require extensive answers.</p>
+                    </div>
+                    <div>
+                        <h6 class="fw-bold">Section B (80 Marks)</h6>
+                        <p>Section B will contain 5 essay questions worth 20 marks each. Candidates answer any FOUR questions from this section. These questions test deeper understanding, analysis, and application of knowledge.</p>
+                    </div>
                 </div>
             </div>
         </div>

@@ -1,106 +1,128 @@
-from reportlab.lib.pagesizes import letter
+import os
+from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
-import string
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem, BulletDrawer
 
 def export_to_pdf(document, questions, output_path):
     """
-    Export questions and answers to PDF
+    Export questions to PDF format following UBTEB exam template
     
     Args:
         document (Document): Document object
         questions (list): List of Question objects
         output_path (str): Path to save the PDF
     """
-    # Create PDF document
-    pdf = SimpleDocTemplate(output_path, pagesize=letter)
-    
-    # Get styles
+    # Create a PDF document
+    doc = SimpleDocTemplate(output_path, pagesize=A4)
     styles = getSampleStyleSheet()
     
-    # Create custom styles
-    title_style = ParagraphStyle(
-        'Title',
+    # Create custom styles with unique names to avoid conflicts
+    custom_title_style = ParagraphStyle(
+        name='UbtebTitle',
         parent=styles['Heading1'],
         fontSize=16,
-        alignment=TA_CENTER,
-        spaceAfter=20
+        alignment=1  # Center alignment
     )
     
-    heading_style = ParagraphStyle(
-        'Heading',
+    custom_subtitle_style = ParagraphStyle(
+        name='UbtebSubtitle',
+        parent=styles['Heading2'],
+        fontSize=12,
+        alignment=1  # Center alignment
+    )
+    
+    custom_section_header = ParagraphStyle(
+        name='UbtebSectionHeader',
         parent=styles['Heading2'],
         fontSize=14,
-        spaceAfter=10
-    )
-    
-    normal_style = ParagraphStyle(
-        'Normal',
-        parent=styles['Normal'],
-        fontSize=12,
+        spaceBefore=10,
         spaceAfter=6
     )
     
-    # Create content
-    content = []
+    custom_question_style = ParagraphStyle(
+        name='UbtebQuestionNumber',
+        parent=styles['Normal'],
+        fontSize=12,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Content elements for the PDF
+    elements = []
     
     # Add title
-    content.append(Paragraph(f"Questions for: {document.title}", title_style))
-    content.append(Spacer(1, 20))
+    title = Paragraph("UGANDA BUSINESS AND TECHNICAL EXAMINATIONS BOARD", custom_title_style)
+    elements.append(title)
+    elements.append(Spacer(1, 12))
     
-    # Add questions section
-    content.append(Paragraph("Questions", heading_style))
-    content.append(Spacer(1, 10))
+    # Get course title if available
+    course_title = document.course.title if document.course else document.title
+    subtitle = Paragraph(f"{course_title.upper()} EXAMINATION", custom_subtitle_style)
+    elements.append(subtitle)
+    elements.append(Spacer(1, 12))
     
-    # Add questions
-    for i, question in enumerate(questions):
-        # Question number and text
-        content.append(Paragraph(f"Q{i+1}. {question.content}", normal_style))
+    # Add instructions
+    instructions = Paragraph("INSTRUCTIONS TO CANDIDATES:", styles['Normal'])
+    elements.append(instructions)
+    elements.append(Spacer(1, 6))
+    
+    # Add exam instructions as bullet points properly
+    instruction_items = [
+        Paragraph("Attempt ALL questions in Section A (20 Marks).", styles['Normal']),
+        Paragraph("Attempt any FOUR questions from Section B (80 Marks).", styles['Normal']),
+        Paragraph("Begin each answer on a fresh page.", styles['Normal']),
+        Paragraph("Non-programmable calculators may be used.", styles['Normal']),
+        Paragraph("Write your name and candidate number on each page of your answer booklet.", styles['Normal'])
+    ]
+    
+    # Create a ListFlowable for the instructions (correct way to handle bullet points)
+    bullet_list = ListFlowable(
+        instruction_items,
+        bulletType='bullet',
+        leftIndent=20,
+        bulletFontName='Helvetica',
+        bulletFontSize=10
+    )
+    elements.append(bullet_list)
+    
+    elements.append(Spacer(1, 20))
+    
+    # Separate questions by type
+    section_a_questions = [q for q in questions if q.question_type == 'section_a']
+    section_b_questions = [q for q in questions if q.question_type == 'section_b']
+    
+    # Add Section A
+    if section_a_questions:
+        section_a_header = Paragraph("SECTION A: ANSWER ALL QUESTIONS (20 Marks)", custom_section_header)
+        elements.append(section_a_header)
+        elements.append(Spacer(1, 10))
         
-        # If multiple choice, add options
-        if question.question_type == 'multiple_choice' and question.options:
-            for j, option in enumerate(question.options):
-                option_letter = string.ascii_uppercase[j]
-                content.append(Paragraph(f"    {option_letter}. {option}", normal_style))
+        for i, question in enumerate(section_a_questions):
+            # Add question number and marks (2 marks per Section A question)
+            question_num = Paragraph(f"{i+1}. {question.content} (2 Marks)", custom_question_style)
+            elements.append(question_num)
+            elements.append(Spacer(1, 10))
+            
+            # Optional: Add space for answer in the exam paper
+            elements.append(Spacer(1, 20))
+    
+    # Add Section B
+    if section_b_questions:
+        elements.append(Spacer(1, 20))
+        section_b_header = Paragraph("SECTION B: ANSWER ANY FOUR QUESTIONS (80 Marks)", custom_section_header)
+        elements.append(section_b_header)
+        elements.append(Spacer(1, 10))
         
-        content.append(Spacer(1, 10))
-    
-    # Add answers section
-    content.append(Paragraph("Answers", heading_style))
-    content.append(Spacer(1, 10))
-    
-    # Create a table for answers
-    answer_data = [["Question", "Answer"]]
-    
-    for i, question in enumerate(questions):
-        if question.question_type == 'multiple_choice' and question.options:
-            # Find the index of the correct answer in options
-            correct_index = question.options.index(question.answer)
-            answer_text = f"{string.ascii_uppercase[correct_index]}. {question.answer}"
-        else:
-            answer_text = question.answer
-        
-        answer_data.append([f"Q{i+1}", answer_text])
-    
-    # Create the table
-    answer_table = Table(answer_data, colWidths=[80, 400])
-    
-    # Style the table
-    answer_table.setStyle(TableStyle([
-        ('BACKGROUND', (0, 0), (1, 0), colors.grey),
-        ('TEXTCOLOR', (0, 0), (1, 0), colors.whitesmoke),
-        ('ALIGN', (0, 0), (1, 0), 'CENTER'),
-        ('FONTNAME', (0, 0), (1, 0), 'Helvetica-Bold'),
-        ('FONTSIZE', (0, 0), (1, 0), 12),
-        ('BOTTOMPADDING', (0, 0), (1, 0), 12),
-        ('BACKGROUND', (0, 1), (-1, -1), colors.beige),
-        ('GRID', (0, 0), (-1, -1), 1, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-    ]))
-    
-    content.append(answer_table)
+        for i, question in enumerate(section_b_questions):
+            # Add question number and marks (20 marks per Section B question)
+            question_num = Paragraph(f"{i+1}. {question.content} (20 Marks)", custom_question_style)
+            elements.append(question_num)
+            elements.append(Spacer(1, 10))
+            
+            # Optional: Add space for answer in the exam paper
+            elements.append(Spacer(1, 40))
     
     # Build the PDF
-    pdf.build(content) 
+    doc.build(elements)
+    
+    return output_path 

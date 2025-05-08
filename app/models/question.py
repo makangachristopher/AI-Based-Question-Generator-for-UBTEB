@@ -7,7 +7,7 @@ class Question(db.Model):
     content = db.Column(db.Text, nullable=False)
     answer = db.Column(db.Text, nullable=False)
     options = db.Column(db.JSON, nullable=True)  # For multiple choice questions
-    question_type = db.Column(db.String(20), nullable=False)  # 'multiple_choice' or 'structured'
+    question_type = db.Column(db.String(20), nullable=False)  # 'section_a' or 'section_b'
     difficulty = db.Column(db.String(20), nullable=False)  # 'easy', 'medium', 'hard'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     

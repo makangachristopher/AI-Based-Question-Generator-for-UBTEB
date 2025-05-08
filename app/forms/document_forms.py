@@ -19,20 +19,7 @@ class DocumentUploadForm(FlaskForm):
     submit = SubmitField('Upload')
 
 class QuestionGenerationForm(FlaskForm):
-    """Question generation form"""
-    num_questions = IntegerField('Number of Questions', validators=[
-        DataRequired(),
-        NumberRange(min=1, max=50, message='Please enter a number between 1 and 50')
-    ], default=10)
-    
-    question_type = SelectField('Question Type', validators=[
-        DataRequired()
-    ], choices=[
-        ('multiple_choice', 'Multiple Choice'),
-        ('structured', 'Structured'),
-        ('both', 'Both')
-    ], default='both')
-    
+    """Question generation form based on UBTEB exam template"""
     difficulty = SelectField('Difficulty Level', validators=[
         DataRequired()
     ], choices=[

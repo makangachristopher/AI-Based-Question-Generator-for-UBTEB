@@ -31,7 +31,7 @@ def generate_questions(text, num_questions=5, question_type='both', difficulty='
     Args:
         text (str): Document text
         num_questions (int): Number of questions to generate
-        question_type (str): Type of questions to generate ('multiple_choice', 'structured', or 'both')
+        question_type (str): Type of questions to generate ('multiple_choice', 'structured', 'essay', or 'both')
         difficulty (str): Difficulty level ('easy', 'medium', 'hard')
         
     Returns:
@@ -74,6 +74,14 @@ def generate_questions(text, num_questions=5, question_type='both', difficulty='
     elif question_type == 'structured':
         return ensure_question_count(
             generate_structured_questions(selected_sentences, num_questions, difficulty),
+            num_questions,
+            question_type,
+            selected_sentences,
+            difficulty
+        )
+    elif question_type == 'essay':
+        return ensure_question_count(
+            generate_essay_questions(selected_sentences, num_questions, difficulty),
             num_questions,
             question_type,
             selected_sentences,
@@ -507,3 +515,119 @@ def clean_question_text(text):
         return None
     
     return question
+
+def generate_essay_questions(sentences, num_questions, difficulty):
+    """
+    Generate essay questions that require detailed answers
+    
+    Args:
+        sentences (list): List of sentences to generate questions from
+        num_questions (int): Number of questions to generate
+        difficulty (str): Difficulty level ('easy', 'medium', 'hard')
+        
+    Returns:
+        list: List of generated essay questions with sample answers
+    """
+    questions = []
+    confidence_base = {'easy': 0.85, 'medium': 0.75, 'hard': 0.65, 'mixed': 0.75}
+    
+    # Group sentences into paragraphs to get more context
+    paragraphs = []
+    current_paragraph = []
+    
+    for sentence in sentences:
+        current_paragraph.append(sentence)
+        if len(current_paragraph) >= 3:  # Consider 3+ sentences as a paragraph
+            paragraphs.append(' '.join(current_paragraph))
+            current_paragraph = []
+    
+    # Add any remaining sentences as a paragraph
+    if current_paragraph:
+        paragraphs.append(' '.join(current_paragraph))
+    
+    # If we don't have enough paragraphs, repeat some
+    while len(paragraphs) < num_questions:
+        paragraphs.extend(paragraphs[:num_questions - len(paragraphs)])
+    
+    # Shuffle and select paragraphs
+    random.shuffle(paragraphs)
+    selected_paragraphs = paragraphs[:num_questions]
+    
+    # Essay-type question prompts based on difficulty
+    essay_prompts = {
+        'easy': [
+            "Explain in detail {}.",
+            "Discuss the importance of {} in the given context.",
+            "Describe the main concepts related to {}.",
+            "Elaborate on the relationship between {} and the main topic.",
+            "Write a comprehensive explanation of {}."
+        ],
+        'medium': [
+            "Analyze the implications of {} and discuss its significance.",
+            "Compare and contrast different aspects of {} and evaluate their importance.",
+            "Critically examine the role of {} in the broader context.",
+            "Evaluate the effectiveness of {} and provide examples to support your answer.",
+            "Investigate the factors that influence {} and explain their impact."
+        ],
+        'hard': [
+            "Critically evaluate the arguments for and against {} and develop your own position.",
+            "Synthesize information about {} and formulate a comprehensive theory or framework.",
+            "Assess the validity of different approaches to understanding {} and propose improvements.",
+            "Formulate a detailed argument about the significance of {} with reference to theoretical perspectives.",
+            "Develop a critical analysis of {} and its implications for future developments in this field."
+        ]
+    }
+    
+    # Use mixed difficulty if specified
+    current_prompts = essay_prompts.get(
+        difficulty if difficulty != 'mixed' else random.choice(['easy', 'medium', 'hard'])
+    )
+    
+    for idx, paragraph in enumerate(selected_paragraphs):
+        if idx >= num_questions:
+            break
+            
+        # Extract key subjects from the paragraph
+        words = paragraph.split()
+        nouns = []
+        
+        for i in range(0, len(words) - 1):
+            # Simple heuristic: words not in common stop words might be subjects
+            if words[i].lower() not in ['the', 'a', 'an', 'of', 'for', 'and', 'or', 'but', 'in', 'on', 'at']:
+                nouns.append(words[i])
+        
+        # Select a subject for the question
+        if nouns:
+            subject = random.choice(nouns).strip('.,;:?!')
+            # If the subject is too short, try to get a phrase
+            if len(subject) < 4:
+                idx = words.index(subject)
+                if idx < len(words) - 2:
+                    subject = ' '.join(words[idx:idx+3]).strip('.,;:?!')
+        else:
+            # Fallback if no suitable nouns found
+            subject = "this topic"
+        
+        # Generate the question using a prompt template
+        prompt = random.choice(current_prompts)
+        question_text = prompt.format(subject)
+        
+        # Clean up the question text
+        question_text = clean_question_text(question_text)
+        
+        # Generate a sample answer framework (this would be just guidance)
+        sample_answer = f"A comprehensive answer about {subject} should include:\n\n"
+        sample_answer += f"1. Introduction to {subject} and its context\n"
+        sample_answer += f"2. Key aspects and characteristics of {subject}\n"
+        sample_answer += f"3. Analysis of the importance and implications of {subject}\n"
+        sample_answer += f"4. Examples and evidence related to {subject}\n"
+        sample_answer += f"5. Conclusion summarizing the main points about {subject}"
+        
+        questions.append({
+            'question': question_text,
+            'answer': sample_answer,
+            'context': paragraph,
+            'confidence': confidence_base[difficulty if difficulty != 'mixed' else 'medium'] * (0.9 + 0.2 * random.random())
+        })
+    
+    return questions

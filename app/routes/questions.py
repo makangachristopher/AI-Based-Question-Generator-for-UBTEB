@@ -30,40 +30,58 @@ def upload_document():
     form.course_id.choices = [(0, 'No Course')] + [(course.id, course.title) for course in user_courses]
     
     if form.validate_on_submit():
-        file = form.document.data
-        
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(current_app.root_path, 'static/uploads', filename)
+        try:
+            file = form.document.data
             
-            # Ensure the upload directory exists
-            os.makedirs(os.path.dirname(file_path), exist_ok=True)
-            
-            file.save(file_path)
-            
-            # Extract text from document
-            document_text = process_document(file_path)
-            
-            # Save document to database
-            document = Document(
-                title=form.title.data,
-                filename=filename,
-                file_path=file_path,
-                content=document_text,
-                user_id=current_user.id
-            )
-            
-            # Set course_id if a course was selected
-            if form.course_id.data != 0:
-                document.course_id = form.course_id.data
-            
-            db.session.add(document)
-            db.session.commit()
-            
-            flash('Document uploaded successfully!', 'success')
-            return redirect(url_for('questions.generate_questions_form', document_id=document.id))
-        else:
-            flash('Invalid file format. Please upload a PDF or Word document.', 'danger')
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                upload_dir = os.path.join(current_app.root_path, 'static/uploads')
+                file_path = os.path.join(upload_dir, filename)
+                
+                # Ensure the upload directory exists
+                os.makedirs(upload_dir, exist_ok=True)
+                
+                # Save the file
+                file.save(file_path)
+                
+                try:
+                    # Extract text from document
+                    document_text = process_document(file_path)
+                    
+                    # Save document to database
+                    document = Document(
+                        title=form.title.data,
+                        filename=filename,
+                        file_path=file_path,
+                        content=document_text,
+                        user_id=current_user.id
+                    )
+                    
+                    # Set course_id if a course was selected
+                    if form.course_id.data != 0:
+                        document.course_id = form.course_id.data
+                    
+                    db.session.add(document)
+                    db.session.commit()
+                    
+                    flash('Document uploaded successfully!', 'success')
+                    return redirect(url_for('questions.generate_questions_form', document_id=document.id))
+                except Exception as e:
+                    # Handle text extraction errors
+                    if os.path.exists(file_path):
+                        os.remove(file_path)  # Clean up the file if processing failed
+                    flash(f'Error processing document: {str(e)}', 'danger')
+                    print(f"Document processing error: {str(e)}")
+            else:
+                flash('Invalid file format. Please upload a PDF or Word document.', 'danger')
+        except Exception as e:
+            flash(f'Error uploading document: {str(e)}', 'danger')
+            print(f"Upload error: {str(e)}")
+    elif request.method == 'POST':
+        # This will show validation errors
+        for field, errors in form.errors.items():
+            for error in errors:
+                flash(f"Error in {getattr(form, field).label.text}: {error}", 'danger')
     
     return render_template('questions/upload.html', form=form)
 
@@ -126,21 +144,41 @@ def generate_questions_form(document_id):
     form = QuestionGenerationForm()
     
     if form.validate_on_submit():
-        # Generate questions
-        generated_questions = generate_questions(
+        # Generate structured questions for Section A (10 short answer questions)
+        section_a_questions = generate_questions(
             document.content,
-            form.num_questions.data,
-            form.question_type.data,
+            10,  # Fixed number of questions for Section A
+            'structured',  # Short answer type
             form.difficulty.data
         )
         
-        # Save questions to database
-        for q in generated_questions:
+        # Generate essay questions for Section B (5 long answer questions)
+        section_b_questions = generate_questions(
+            document.content,
+            5,  # Fixed number of questions for Section B
+            'essay',  # Essay type
+            form.difficulty.data
+        )
+        
+        # Save all questions to database
+        for q in section_a_questions:
             question = Question(
                 content=q['question'],
                 answer=q['answer'],
-                options=q.get('options', None),  # Only for multiple choice
-                question_type=form.question_type.data,
+                options=None,
+                question_type='section_a',  # Mark as Section A
+                difficulty=form.difficulty.data,
+                document_id=document.id,
+                user_id=current_user.id
+            )
+            db.session.add(question)
+        
+        for q in section_b_questions:
+            question = Question(
+                content=q['question'],
+                answer=q['answer'],
+                options=None,
+                question_type='section_b',  # Mark as Section B
                 difficulty=form.difficulty.data,
                 document_id=document.id,
                 user_id=current_user.id
@@ -149,7 +187,8 @@ def generate_questions_form(document_id):
         
         db.session.commit()
         
-        flash(f'{len(generated_questions)} questions generated successfully!', 'success')
+        total_questions = len(section_a_questions) + len(section_b_questions)
+        flash(f'{total_questions} questions generated successfully!', 'success')
         return redirect(url_for('questions.view_questions', document_id=document.id))
     
     return render_template('questions/generate.html', form=form, document=document)
