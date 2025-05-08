@@ -1,7 +1,7 @@
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired, FileAllowed
 from wtforms import StringField, IntegerField, SelectField, SubmitField
-from wtforms.validators import DataRequired, Length, NumberRange
+from wtforms.validators import DataRequired, Length, NumberRange, Optional
 
 class DocumentUploadForm(FlaskForm):
     """Document upload form"""
@@ -13,6 +13,9 @@ class DocumentUploadForm(FlaskForm):
         FileRequired(),
         FileAllowed(['pdf', 'docx', 'doc'], 'Only PDF and Word documents are allowed!')
     ])
+    course_id = SelectField('Course (Optional)', 
+                        validators=[Optional()],
+                        coerce=int)
     submit = SubmitField('Upload')
 
 class QuestionGenerationForm(FlaskForm):

@@ -1,0 +1,168 @@
+{% extends "base.html" %}
+
+{% block title %}My Courses - AI Based Question Generation System {% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1>My Courses</h1>
+            <p class="lead">Organize your documents and questions by course.</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{{ url_for('courses.create_course') }}" class="btn btn-primary">
+                <i class="fas fa-plus me-2"></i>New Course
+            </a>
+        </div>
+    </div>
+
+    {% if courses %}
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-header bg-light">
+                        <div class="row align-items-center">
+                            <div class="col">
+                                <h5 class="mb-0">Your Courses</h5>
+                            </div>
+                            <div class="col-auto">
+                                <span class="badge bg-primary">{{ courses|length }} Courses</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Title</th>
+                                        <th>Documents</th>
+                                        <th>Created</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for course in courses|sort(attribute='created_at', reverse=True) %}
+                                        <tr>
+                                            <td>{{ course.title }}</td>
+                                            <td>
+                                                {% if course.documents|length > 0 %}
+                                                    <span class="badge bg-success">{{ course.documents|length }} Documents</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">No Documents</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>{{ course.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+                                            <td>
+                                                <div class="btn-group" role="group">
+                                                    <a href="{{ url_for('courses.view_course', course_id=course.id) }}" 
+                                                       class="btn btn-sm btn-outline-primary" 
+                                                       title="View Course">
+                                                        <i class="fas fa-eye"></i>
+                                                    </a>
+                                                    <a href="{{ url_for('courses.edit_course', course_id=course.id) }}" 
+                                                       class="btn btn-sm btn-outline-secondary"
+                                                       title="Edit Course">
+                                                        <i class="fas fa-edit"></i>
+                                                    </a>
+                                                    <button type="button" 
+                                                            class="btn btn-sm btn-outline-danger delete-course-btn"
+                                                            data-course-id="{{ course.id }}"
+                                                            data-course-title="{{ course.title }}"
+                                                            title="Delete Course">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% else %}
+        <div class="row">
+            <div class="col-md-12">
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="fas fa-book fa-4x text-muted mb-4"></i>
+                        <h4>No Courses Yet</h4>
+                        <p class="text-muted mb-4">You haven't created any courses yet. Create a course to organize your documents!</p>
+                        <a href="{{ url_for('courses.create_course') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Create Course
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteCourseModal" tabindex="-1" aria-labelledby="deleteCourseModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteCourseModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the course "<span id="courseTitle"></span>"?</p>
+                <p class="text-danger">This will also delete all associated documents and questions. This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteCourseForm" action="" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Get the modal element
+    var deleteModal = document.getElementById('deleteCourseModal');
+    var deleteForm = document.getElementById('deleteCourseForm');
+    var courseTitleSpan = document.getElementById('courseTitle');
+    
+    // Get all delete buttons
+    var deleteButtons = document.querySelectorAll('.delete-course-btn');
+    
+    // Create the Bootstrap modal instance
+    var confirmModal = new bootstrap.Modal(deleteModal);
+    
+    // Add click event to all delete buttons
+    deleteButtons.forEach(function(button) {
+        button.addEventListener('click', function() {
+            var courseId = this.getAttribute('data-course-id');
+            var courseTitle = this.getAttribute('data-course-title');
+            
+            // Set the document title in the modal
+            courseTitleSpan.textContent = courseTitle;
+            
+            // Set the form action URL
+            deleteForm.action = "/courses/" + courseId + "/delete";
+            
+            // Show the modal
+            confirmModal.show();
+        });
+    });
+    
+    // Ensure the form submits when the delete button in the modal is clicked
+    deleteForm.addEventListener('submit', function(e) {
+        // Hide the modal before submitting to avoid any modal-related issues
+        confirmModal.hide();
+    });
+    
+    console.log("Course management page initialized successfully");
+});
+</script>
+{% endblock %} 

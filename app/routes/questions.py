@@ -10,6 +10,7 @@ from app.utils.document_processor import process_document
 from app.utils.question_generator import generate_questions
 from app.utils.pdf_exporter import export_to_pdf
 import tempfile
+from app.models.course import Course
 
 questions = Blueprint('questions', __name__)
 
@@ -23,6 +24,10 @@ def allowed_file(filename):
 def upload_document():
     """Document upload route"""
     form = DocumentUploadForm()
+    
+    # Populate the course choices
+    user_courses = Course.query.filter_by(user_id=current_user.id).all()
+    form.course_id.choices = [(0, 'No Course')] + [(course.id, course.title) for course in user_courses]
     
     if form.validate_on_submit():
         file = form.document.data
@@ -47,6 +52,10 @@ def upload_document():
                 content=document_text,
                 user_id=current_user.id
             )
+            
+            # Set course_id if a course was selected
+            if form.course_id.data != 0:
+                document.course_id = form.course_id.data
             
             db.session.add(document)
             db.session.commit()

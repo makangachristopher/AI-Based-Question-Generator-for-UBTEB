@@ -1,12 +1,63 @@
 {% extends "base.html" %} {% block title %}Dashboard - AI Based Question
 Generation System {% endblock %} {% block content %}
-<div class="container py-4">
+<div class="container py-5">
   <div class="row mb-4">
-    <div class="col-md-12">
-      <h1 class="mb-4">Welcome, {{ user.username }}!</h1>
-      <p class="lead">
-        Manage your documents and generated questions from your dashboard.
-      </p>
+    <div class="col-md-8">
+      <h1>Dashboard</h1>
+      <p class="lead">Welcome back, {{ current_user.username }}! Manage your documents and generated questions here.</p>
+    </div>
+  </div>
+
+  <div class="row mb-4">
+    <!-- Documents Card -->
+    <div class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm border-primary">
+        <div class="card-body text-center">
+          <div class="card-icon mb-3">
+            <i class="fas fa-file-alt fa-3x text-primary"></i>
+          </div>
+          <h3 class="card-title">Documents</h3>
+          <p class="card-text">Upload and manage your documents to generate questions.</p>
+          <div class="card-actions">
+            <a href="{{ url_for('questions.list_documents') }}" class="btn btn-primary mb-2 w-100">View Documents</a>
+            <a href="{{ url_for('questions.upload_document') }}" class="btn btn-outline-primary w-100">Upload New Document</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Courses Card -->
+    <div class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm border-success">
+        <div class="card-body text-center">
+          <div class="card-icon mb-3">
+            <i class="fas fa-book fa-3x text-success"></i>
+          </div>
+          <h3 class="card-title">Courses</h3>
+          <p class="card-text">Organize your documents and questions by course topics.</p>
+          <div class="card-actions">
+            <a href="{{ url_for('courses.list_courses') }}" class="btn btn-success mb-2 w-100">View Courses</a>
+            <a href="{{ url_for('courses.create_course') }}" class="btn btn-outline-success w-100">Create New Course</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Questions Card -->
+    <div class="col-md-4 mb-4">
+      <div class="card h-100 shadow-sm border-info">
+        <div class="card-body text-center">
+          <div class="card-icon mb-3">
+            <i class="fas fa-question-circle fa-3x text-info"></i>
+          </div>
+          <h3 class="card-title">Generate Questions</h3>
+          <p class="card-text">Generate questions from your documents using AI technology.</p>
+          <div class="card-actions">
+            <a href="{{ url_for('questions.list_documents') }}" class="btn btn-info mb-2 w-100">Select Document</a>
+            <a href="{{ url_for('questions.upload_document') }}" class="btn btn-outline-info w-100">Upload & Generate</a>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -110,28 +161,26 @@ Generation System {% endblock %} {% block content %}
               <th>Actions</th>
             </tr>
           </thead>
-          <!-- ... existing code ... -->
-
-<tbody>
-    {% for document in user.documents|sort(attribute='created_at', reverse=True)|batch(5)|first|default([]) %}
-        <tr>
-            <td>{{ document.title or 'Untitled Document' }}</td>
-            <td>{{ document.question_type|title }}</td>
-            <td>{{ document.questions|length }}</td>
-            <td>{{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-            <td>
+          <tbody>
+            {% for document in user.documents|sort(attribute='created_at', reverse=True)|batch(5)|first|default([]) %}
+            <tr>
+              <td>{{ document.title or 'Untitled Document' }}</td>
+              <td>{{ document.question_type|title }}</td>
+              <td>{{ document.questions|length }}</td>
+              <td>{{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
                 <a href="{{ url_for('questions.view_document', document_id=document.id) }}" 
                    class="btn btn-sm btn-primary">
-                    <i class="fas fa-eye me-1"></i>View
+                  <i class="fas fa-eye me-1"></i>View
                 </a>
                 <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" 
                    class="btn btn-sm btn-success">
-                    <i class="fas fa-sync me-1"></i>Regenerate
+                  <i class="fas fa-sync me-1"></i>Regenerate
                 </a>
-            </td>
-        </tr>
-    {% endfor %}
-</tbody>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
         </table>
       </div>
       {% if user.documents|length > 5 %}

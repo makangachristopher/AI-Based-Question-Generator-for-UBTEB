@@ -79,13 +79,28 @@
                     </li>
                     {% if current_user.is_authenticated %}
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                        <a class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}" 
+                           href="{{ url_for('main.dashboard') }}">
+                            <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('questions.list_documents') }}">My Documents</a>
+                        <a class="nav-link {% if request.endpoint.startswith('questions.list_documents') %}active{% endif %}" 
+                           href="{{ url_for('questions.list_documents') }}">
+                            <i class="fas fa-file-alt me-1"></i>Documents
+                        </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('questions.upload_document') }}">Upload Document</a>
+                        <a class="nav-link {% if request.endpoint.startswith('courses.') %}active{% endif %}" 
+                           href="{{ url_for('courses.list_courses') }}">
+                            <i class="fas fa-book me-1"></i>Courses
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link {% if request.endpoint == 'questions.upload_document' %}active{% endif %}" 
+                           href="{{ url_for('questions.upload_document') }}">
+                            <i class="fas fa-upload me-1"></i>Upload
+                        </a>
                     </li>
                     {% endif %}
                     <li class="nav-item">

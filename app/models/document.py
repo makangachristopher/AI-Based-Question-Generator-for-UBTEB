@@ -12,6 +12,7 @@ class Document(db.Model):
     
     # Foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=True)
     
     # Relationships
     questions = db.relationship('Question', backref='document', lazy=True, cascade="all, delete-orphan")
