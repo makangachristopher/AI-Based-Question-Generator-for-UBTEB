@@ -4,7 +4,7 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem, BulletDrawer
 
-def export_to_pdf(document, questions, output_path):
+def export_to_pdf(document, questions, output_path, exam_metadata):
     """
     Export questions to PDF format following UBTEB exam template
     
@@ -12,6 +12,7 @@ def export_to_pdf(document, questions, output_path):
         document (Document): Document object
         questions (list): List of Question objects
         output_path (str): Path to save the PDF
+        exam_metadata (dict): Dictionary containing exam header information
     """
     # Create a PDF document
     doc = SimpleDocTemplate(output_path, pagesize=A4)
@@ -29,7 +30,16 @@ def export_to_pdf(document, questions, output_path):
         name='UbtebSubtitle',
         parent=styles['Heading2'],
         fontSize=12,
-        alignment=1  # Center alignment
+        alignment=1,  # Center alignment
+        spaceAfter=6
+    )
+    
+    header_style = ParagraphStyle(
+        name='UbtebHeader',
+        parent=styles['Normal'],
+        fontSize=11,
+        alignment=1,  # Center alignment
+        spaceAfter=2
     )
     
     custom_section_header = ParagraphStyle(
@@ -44,7 +54,14 @@ def export_to_pdf(document, questions, output_path):
         name='UbtebQuestionNumber',
         parent=styles['Normal'],
         fontSize=12,
-        fontName='Helvetica-Bold'
+        fontName='Helvetica'
+    )
+
+    custom_exam_details_style = ParagraphStyle(
+        name='UbtebTitle',
+        parent=styles['Heading1'],
+        fontSize=14,
+        alignment=1  # Center alignment
     )
     
     # Content elements for the PDF
@@ -53,12 +70,31 @@ def export_to_pdf(document, questions, output_path):
     # Add title
     title = Paragraph("UGANDA BUSINESS AND TECHNICAL EXAMINATIONS BOARD", custom_title_style)
     elements.append(title)
-    elements.append(Spacer(1, 12))
+    elements.append(Spacer(1, 6))
     
-    # Get course title if available
-    course_title = document.course.title if document.course else document.title
-    subtitle = Paragraph(f"{course_title.upper()} EXAMINATION", custom_subtitle_style)
-    elements.append(subtitle)
+    # Add exam series
+    exam_series = Paragraph(exam_metadata.get('exam_series', 'EXAM SERIES'), custom_exam_details_style)
+    elements.append(exam_series)
+    
+    # Add programme
+    programme = Paragraph(f"PROGRAMME: {exam_metadata.get('programme_list', 'PROGRAMME')}", custom_exam_details_style)
+    elements.append(programme)
+    
+    # Add paper name
+    paper_name = Paragraph(f"PAPER NAME: {exam_metadata.get('paper_name', 'PAPER NAME')}", custom_exam_details_style)
+    elements.append(paper_name)
+    
+    # Add paper code
+    paper_code = Paragraph(f"PAPER CODE: {exam_metadata.get('paper_code', 'PAPER CODE')}", custom_exam_details_style)
+    elements.append(paper_code)
+    
+    # Add year and semester
+    year_semester = Paragraph(f"{exam_metadata.get('year_semester', 'YEAR AND SEMESTER')}", custom_exam_details_style)
+    elements.append(year_semester)
+    
+    # Add exam date
+    exam_date = Paragraph(f"DATE: {exam_metadata.get('exam_date', 'EXAM DATE')}", custom_exam_details_style)
+    elements.append(exam_date)
     elements.append(Spacer(1, 12))
     
     # Add instructions
@@ -70,7 +106,7 @@ def export_to_pdf(document, questions, output_path):
     instruction_items = [
         Paragraph("Attempt ALL questions in Section A (20 Marks).", styles['Normal']),
         Paragraph("Attempt any FOUR questions from Section B (80 Marks).", styles['Normal']),
-        Paragraph("Begin each answer on a fresh page.", styles['Normal']),
+        Paragraph("Begin each answer on a fresh page in Section B", styles['Normal']),
         Paragraph("Non-programmable calculators may be used.", styles['Normal']),
         Paragraph("Write your name and candidate number on each page of your answer booklet.", styles['Normal'])
     ]
@@ -104,7 +140,7 @@ def export_to_pdf(document, questions, output_path):
             elements.append(Spacer(1, 10))
             
             # Optional: Add space for answer in the exam paper
-            elements.append(Spacer(1, 20))
+            # elements.append(Spacer(1, 20))
     
     # Add Section B
     if section_b_questions:
@@ -120,7 +156,7 @@ def export_to_pdf(document, questions, output_path):
             elements.append(Spacer(1, 10))
             
             # Optional: Add space for answer in the exam paper
-            elements.append(Spacer(1, 40))
+            #elements.append(Spacer(1, 40))
     
     # Build the PDF
     doc.build(elements)

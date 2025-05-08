@@ -1,5 +1,5 @@
 import os
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
@@ -11,6 +11,7 @@ from app.utils.question_generator import generate_questions
 from app.utils.pdf_exporter import export_to_pdf
 import tempfile
 from app.models.course import Course
+from datetime import date
 
 questions = Blueprint('questions', __name__)
 
@@ -143,6 +144,10 @@ def generate_questions_form(document_id):
     
     form = QuestionGenerationForm()
     
+    # Set default date to today if not provided
+    if not form.exam_date.data:
+        form.exam_date.data = date.today()
+    
     if form.validate_on_submit():
         # Generate structured questions for Section A (10 short answer questions)
         section_a_questions = generate_questions(
@@ -159,6 +164,16 @@ def generate_questions_form(document_id):
             'essay',  # Essay type
             form.difficulty.data
         )
+        
+        # Save exam metadata to session for PDF generation
+        session['exam_metadata'] = {
+            'exam_series': form.exam_series.data,
+            'programme_list': form.programme_list.data,
+            'paper_name': form.paper_name.data,
+            'paper_code': form.paper_code.data,
+            'year_semester': form.year_semester.data,
+            'exam_date': form.exam_date.data.strftime('%d %B %Y')
+        }
         
         # Save all questions to database
         for q in section_a_questions:
@@ -278,8 +293,18 @@ def export_questions(document_id):
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
         pdf_path = temp_file.name
     
+    # Get exam metadata from session or use defaults
+    exam_metadata = session.get('exam_metadata', {
+        'exam_series': 'UBTEB SERIES',
+        'programme_list': document.course.title if document.course else 'GENERAL COURSE',
+        'paper_name': document.title,
+        'paper_code': 'EXAM CODE',
+        'year_semester': 'CURRENT TERM',
+        'exam_date': 'EXAM DATE'
+    })
+    
     # Generate PDF
-    export_to_pdf(document, questions, pdf_path)
+    export_to_pdf(document, questions, pdf_path, exam_metadata)
     
     return send_file(
         pdf_path,

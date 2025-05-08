@@ -37,6 +37,110 @@
                             </ul>
                         </div>
                         
+                        <!-- Exam Header Information -->
+                        <h5 class="mb-3">Exam Header Information</h5>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.exam_series.label(class="form-label") }}
+                                    {% if form.exam_series.errors %}
+                                        {{ form.exam_series(class="form-control is-invalid") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.exam_series.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.exam_series(class="form-control") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.programme_list.label(class="form-label") }}
+                                    {% if form.programme_list.errors %}
+                                        {{ form.programme_list(class="form-control is-invalid") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.programme_list.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.programme_list(class="form-control") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.paper_name.label(class="form-label") }}
+                                    {% if form.paper_name.errors %}
+                                        {{ form.paper_name(class="form-control is-invalid") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.paper_name.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.paper_name(class="form-control") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.paper_code.label(class="form-label") }}
+                                    {% if form.paper_code.errors %}
+                                        {{ form.paper_code(class="form-control is-invalid") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.paper_code.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.paper_code(class="form-control") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.year_semester.label(class="form-label") }}
+                                    {% if form.year_semester.errors %}
+                                        {{ form.year_semester(class="form-control is-invalid") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.year_semester.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.year_semester(class="form-control") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    {{ form.exam_date.label(class="form-label") }}
+                                    {% if form.exam_date.errors %}
+                                        {{ form.exam_date(class="form-control is-invalid", type="date") }}
+                                        <div class="invalid-feedback">
+                                            {% for error in form.exam_date.errors %}
+                                                <span>{{ error }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% else %}
+                                        {{ form.exam_date(class="form-control", type="date") }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        <h5 class="mb-3">Question Generation Settings</h5>
+                        
                         <div class="mb-4">
                             {{ form.difficulty.label(class="form-label") }}
                             {% if form.difficulty.errors %}
