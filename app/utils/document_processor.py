@@ -47,15 +47,12 @@ def extract_text_from_pdf(pdf_path):
             if pdf_reader.is_encrypted:
                 raise ValueError("Cannot process encrypted PDF files")
             
-            # Check if PDF has extractable text
-            if len(pdf_reader.pages) == 0:
-                raise ValueError("PDF has no pages")
-            
+            # Process each page
             for page_num in range(len(pdf_reader.pages)):
                 page = pdf_reader.pages[page_num]
                 page_text = page.extract_text()
                 
-                # If page has no text, add a placeholder to avoid empty document
+                # If page has no text, add a placeholder
                 if not page_text:
                     page_text = f"[Page {page_num + 1} contains no extractable text]"
                     
@@ -66,12 +63,10 @@ def extract_text_from_pdf(pdf_path):
             raise ValueError("PDF does not contain extractable text. It may be scanned or image-based.")
             
         return text
-    except PyPDF2.errors.PdfReadError as e:
-        raise ValueError(f"Failed to read PDF file: {str(e)}")
     except Exception as e:
         print(f"Error extracting text from PDF: {str(e)}")
         print(traceback.format_exc())
-        raise
+        raise ValueError(f"Failed to extract text from PDF: {str(e)}")
 
 def extract_text_from_docx(docx_path):
     """

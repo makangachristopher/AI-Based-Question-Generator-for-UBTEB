@@ -20,7 +20,7 @@
         <div class="col-md-8 mx-auto">
             <div class="card shadow">
                 <div class="card-body p-4">
-                    <form method="POST" enctype="multipart/form-data" action="">
+                    <form method="POST" enctype="multipart/form-data" action="" id="uploadForm">
                         {{ form.hidden_tag() }}
                         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                         
@@ -44,17 +44,21 @@
                             {{ form.document.label(class="form-label") }}
                             <div class="input-group">
                                 {% if form.document.errors %}
-                                    {{ form.document(class="form-control is-invalid") }}
+                                    {{ form.document(class="form-control is-invalid", accept=".pdf,.doc,.docx") }}
                                     <div class="invalid-feedback">
                                         {% for error in form.document.errors %}
                                             <span>{{ error }}</span>
                                         {% endfor %}
                                     </div>
                                 {% else %}
-                                    {{ form.document(class="form-control") }}
+                                    {{ form.document(class="form-control", accept=".pdf,.doc,.docx") }}
                                 {% endif %}
                             </div>
-                            <div class="form-text">Supported formats: PDF, DOCX, DOC. Maximum file size: 16MB.</div>
+                            <div class="form-text">
+                                <strong>Supported formats:</strong> PDF (.pdf), Word (.docx, .doc)<br>
+                                <strong>Maximum file size:</strong> 16MB<br>
+                                <strong>Note:</strong> PDF documents must contain selectable text. Scanned documents may not work properly.
+                            </div>
                         </div>
                         
                         <div class="mb-4">
@@ -80,7 +84,13 @@
                         </div>
                         
                         <div class="d-grid gap-2">
-                            {{ form.submit(class="btn btn-primary") }}
+                            {{ form.submit(class="btn btn-primary", id="submitButton") }}
+                            <div id="loadingIndicator" class="d-none text-center mt-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Processing your document. This may take a few moments...</p>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -114,4 +124,23 @@
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('uploadForm');
+        const submitButton = document.getElementById('submitButton');
+        const loadingIndicator = document.getElementById('loadingIndicator');
+        
+        form.addEventListener('submit', function() {
+            // Disable the submit button
+            submitButton.disabled = true;
+            submitButton.innerText = 'Uploading...';
+            
+            // Show loading indicator
+            loadingIndicator.classList.remove('d-none');
+        });
+    });
+</script>
 {% endblock %} 

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}View Questions - AI Based Question Generation System {% endblock %}
+{% block title %}{{ question_set.title }} - AI Based Question Generation System {% endblock %}
 
 {% block content %}
 <div class="container py-5">
@@ -9,25 +9,54 @@
             <nav aria-label="breadcrumb">
                 <ol class="breadcrumb">
                     <li class="breadcrumb-item"><a href="{{ url_for('questions.list_documents') }}">My Documents</a></li>
-                    <li class="breadcrumb-item"><a href="{{ url_for('questions.view_document', document_id=document.id) }}">{{ document.title }}</a></li>
-                    <li class="breadcrumb-item active" aria-current="page">Questions</li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('questions.view_document', document_id=question_set.document.id) }}">{{ question_set.document.title }}</a></li>
+                    <li class="breadcrumb-item"><a href="{{ url_for('questions.list_question_sets', document_id=question_set.document.id) }}">Question Sets</a></li>
+                    <li class="breadcrumb-item active" aria-current="page">{{ question_set.title }}</li>
                 </ol>
             </nav>
-            <h1 class="mb-3">UBTEB Exam Questions for "{{ document.title }}"</h1>
-            <p class="lead">Review, edit, or export the generated questions in UBTEB format.</p>
+            <h1 class="mb-3">{{ question_set.title }}</h1>
+            <p class="lead">Review, edit, or export this question set.</p>
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group" role="group">
-                <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" class="btn btn-success">
-                    <i class="fas fa-sync-alt me-2"></i>Regenerate
-                </a>
-                <a href="{{ url_for('questions.export_questions', document_id=document.id) }}" class="btn btn-primary">
+                <a href="{{ url_for('questions.export_question_set', question_set_id=question_set.id) }}" class="btn btn-primary">
                     <i class="fas fa-file-pdf me-2"></i>Export to PDF
                 </a>
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteQuestionSetModal">
+                    <i class="fas fa-trash me-2"></i>Delete
+                </button>
             </div>
         </div>
     </div>
 
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Exam Information</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <p><strong>Exam Series:</strong> {{ question_set.exam_series }}</p>
+                            <p><strong>Programme:</strong> {{ question_set.programme_list }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>Paper Name:</strong> {{ question_set.paper_name }}</p>
+                            <p><strong>Paper Code:</strong> {{ question_set.paper_code }}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <p><strong>Year/Semester:</strong> {{ question_set.year_semester }}</p>
+                            <p><strong>Exam Date:</strong> {{ question_set.exam_date }}</p>
+                            <p><strong>Difficulty:</strong> {{ question_set.difficulty|title }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% set questions = question_set.questions %}
     {% if questions %}
         <!-- Section A Questions -->
         {% set section_a_questions = questions|selectattr('question_type', 'equalto', 'section_a')|list %}
@@ -192,10 +221,10 @@
                 <div class="card">
                     <div class="card-body text-center py-5">
                         <i class="fas fa-question-circle fa-4x text-muted mb-4"></i>
-                        <h4>No Questions Generated Yet</h4>
-                        <p class="text-muted mb-4">You haven't generated any questions for this document yet.</p>
-                        <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" class="btn btn-primary">
-                            <i class="fas fa-brain me-2"></i>Generate Questions
+                        <h4>No Questions Found</h4>
+                        <p class="text-muted mb-4">This question set doesn't contain any questions.</p>
+                        <a href="{{ url_for('questions.list_question_sets', document_id=question_set.document_id) }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-left me-2"></i>Back to Question Sets
                         </a>
                     </div>
                 </div>
@@ -203,6 +232,30 @@
         </div>
     {% endif %}
 </div>
+
+<!-- Delete Question Set Modal -->
+<div class="modal fade" id="deleteQuestionSetModal" tabindex="-1" aria-labelledby="deleteQuestionSetModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteQuestionSetModalLabel">Confirm Delete</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete this entire question set?</p>
+                <p class="text-danger">This will delete all questions in this set and cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form action="{{ url_for('questions.delete_question_set', question_set_id=question_set.id) }}" method="POST">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete Question Set</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}

@@ -26,6 +26,10 @@ def create_app():
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max upload size
     
+    # Ensure upload directory exists
+    upload_dir = os.path.join(app.root_path, 'static/uploads')
+    os.makedirs(upload_dir, exist_ok=True)
+    
     # Initialize extensions with app
     db.init_app(app)
     login_manager.init_app(app)

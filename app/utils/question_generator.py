@@ -599,13 +599,26 @@ def generate_essay_questions(sentences, num_questions, difficulty):
         # Select a subject for the question
         if nouns:
             subject = random.choice(nouns).strip('.,;:?!')
-            # If the subject is too short, try to get a phrase
-            if len(subject) < 4:
-                idx = words.index(subject)
-                if idx < len(words) - 2:
-                    subject = ' '.join(words[idx:idx+3]).strip('.,;:?!')
+            # If the subject is too short or empty after stripping, try to get a phrase
+            if not subject or len(subject) < 4:
+                # Find the original subject before stripping
+                original_subject = random.choice(nouns)
+                # Try to find the original noun's position
+                try:
+                    idx = words.index(original_subject)
+                    if idx < len(words) - 2:
+                        subject = ' '.join(words[idx:idx+3]).strip('.,;:?!')
+                    else:
+                        subject = original_subject  # Fallback to original if we can't get a phrase
+                except ValueError:
+                    # If we can't find the original subject for some reason, use fallback
+                    subject = "this topic"
         else:
             # Fallback if no suitable nouns found
+            subject = "this topic"
+        
+        # Ensure subject is never empty
+        if not subject or subject.strip() == "":
             subject = "this topic"
         
         # Generate the question using a prompt template

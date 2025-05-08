@@ -4,7 +4,7 @@ from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
 from app.models.document import Document
-from app.models.question import Question
+from app.models.question import Question, QuestionSet
 from app.forms.document_forms import DocumentUploadForm, QuestionGenerationForm
 from app.utils.document_processor import process_document
 from app.utils.question_generator import generate_questions
@@ -12,6 +12,7 @@ from app.utils.pdf_exporter import export_to_pdf
 import tempfile
 from app.models.course import Course
 from datetime import date
+import traceback
 
 questions = Blueprint('questions', __name__)
 
@@ -117,10 +118,14 @@ def delete_document(document_id):
         return redirect(url_for('questions.list_documents'))
     
     try:
-        # Delete associated questions first
-        Question.query.filter_by(document_id=document.id).delete()
+        # All questions and question sets will be deleted automatically due to cascade delete
+        # in the document's relationships with question_sets and questions
         
-        # Delete the document
+        # If the file exists, delete it
+        if os.path.exists(document.file_path):
+            os.remove(document.file_path)
+        
+        # Delete the document (cascades to question sets and questions)
         db.session.delete(document)
         db.session.commit()
         
@@ -165,17 +170,27 @@ def generate_questions_form(document_id):
             form.difficulty.data
         )
         
-        # Save exam metadata to session for PDF generation
-        session['exam_metadata'] = {
-            'exam_series': form.exam_series.data,
-            'programme_list': form.programme_list.data,
-            'paper_name': form.paper_name.data,
-            'paper_code': form.paper_code.data,
-            'year_semester': form.year_semester.data,
-            'exam_date': form.exam_date.data.strftime('%d %B %Y')
-        }
+        # Format the exam date for display
+        formatted_exam_date = form.exam_date.data.strftime('%d %B %Y')
         
-        # Save all questions to database
+        # Create a new question set
+        question_set = QuestionSet(
+            title=f"UBTEB Exam - {document.title} - {date.today().strftime('%Y-%m-%d')}",
+            document_id=document.id,
+            user_id=current_user.id,
+            difficulty=form.difficulty.data,
+            exam_series=form.exam_series.data,
+            programme_list=form.programme_list.data,
+            paper_name=form.paper_name.data,
+            paper_code=form.paper_code.data,
+            year_semester=form.year_semester.data,
+            exam_date=formatted_exam_date
+        )
+        
+        db.session.add(question_set)
+        db.session.flush()  # Get the question_set ID before committing
+        
+        # Save all questions to database with the question_set_id
         for q in section_a_questions:
             question = Question(
                 content=q['question'],
@@ -184,7 +199,8 @@ def generate_questions_form(document_id):
                 question_type='section_a',  # Mark as Section A
                 difficulty=form.difficulty.data,
                 document_id=document.id,
-                user_id=current_user.id
+                user_id=current_user.id,
+                question_set_id=question_set.id
             )
             db.session.add(question)
         
@@ -196,32 +212,44 @@ def generate_questions_form(document_id):
                 question_type='section_b',  # Mark as Section B
                 difficulty=form.difficulty.data,
                 document_id=document.id,
-                user_id=current_user.id
+                user_id=current_user.id,
+                question_set_id=question_set.id
             )
             db.session.add(question)
         
         db.session.commit()
         
         total_questions = len(section_a_questions) + len(section_b_questions)
-        flash(f'{total_questions} questions generated successfully!', 'success')
-        return redirect(url_for('questions.view_questions', document_id=document.id))
+        flash(f'{total_questions} questions generated successfully in new question set!', 'success')
+        return redirect(url_for('questions.view_question_set', question_set_id=question_set.id))
     
     return render_template('questions/generate.html', form=form, document=document)
 
 @questions.route('/documents/<int:document_id>/questions')
 @login_required
 def view_questions(document_id):
-    """View generated questions"""
+    """Redirect to question sets view"""
+    return redirect(url_for('questions.list_question_sets', document_id=document_id))
+
+@questions.route('/documents/<int:document_id>/export', methods=['GET'])
+@login_required
+def export_questions(document_id):
+    """Find the most recent question set and export it"""
     document = Document.query.get_or_404(document_id)
     
     # Check if the document belongs to the current user
     if document.user_id != current_user.id:
-        flash('You do not have permission to view questions for this document.', 'danger')
+        flash('You do not have permission to export questions for this document.', 'danger')
         return redirect(url_for('questions.list_documents'))
     
-    questions = Question.query.filter_by(document_id=document.id).all()
+    # Find the most recent question set
+    question_set = QuestionSet.query.filter_by(document_id=document.id).order_by(QuestionSet.created_at.desc()).first()
     
-    return render_template('questions/view_questions.html', document=document, questions=questions)
+    if question_set:
+        return redirect(url_for('questions.export_question_set', question_set_id=question_set.id))
+    else:
+        flash('No question sets found to export.', 'warning')
+        return redirect(url_for('questions.list_question_sets', document_id=document_id))
 
 @questions.route('/questions/<int:question_id>/edit', methods=['GET', 'POST'])
 @login_required
@@ -249,7 +277,8 @@ def edit_question(question_id):
         db.session.commit()
         
         flash('Question updated successfully!', 'success')
-        return redirect(url_for('questions.view_questions', document_id=question.document_id))
+        question_set_id = question.question_set_id
+        return redirect(url_for('questions.view_question_set', question_set_id=question_set_id))
     
     return render_template('questions/edit_question.html', question=question)
 
@@ -264,44 +293,76 @@ def delete_question(question_id):
         flash('You do not have permission to delete this question.', 'danger')
         return redirect(url_for('questions.list_documents'))
     
-    document_id = question.document_id
+    question_set_id = question.question_set_id
     
     db.session.delete(question)
     db.session.commit()
     
     flash('Question deleted successfully!', 'success')
-    return redirect(url_for('questions.view_questions', document_id=document_id))
+    return redirect(url_for('questions.view_question_set', question_set_id=question_set_id))
 
-@questions.route('/documents/<int:document_id>/export', methods=['GET'])
+@questions.route('/documents/<int:document_id>/question-sets')
 @login_required
-def export_questions(document_id):
-    """Export questions to PDF"""
+def list_question_sets(document_id):
+    """List all question sets for a document"""
     document = Document.query.get_or_404(document_id)
     
     # Check if the document belongs to the current user
     if document.user_id != current_user.id:
-        flash('You do not have permission to export questions for this document.', 'danger')
+        flash('You do not have permission to view question sets for this document.', 'danger')
         return redirect(url_for('questions.list_documents'))
     
-    questions = Question.query.filter_by(document_id=document.id).all()
+    question_sets = QuestionSet.query.filter_by(document_id=document.id).order_by(QuestionSet.created_at.desc()).all()
+    
+    return render_template('questions/question_sets.html', document=document, question_sets=question_sets)
+
+@questions.route('/question-sets/<int:question_set_id>')
+@login_required
+def view_question_set(question_set_id):
+    """View a specific question set"""
+    question_set = QuestionSet.query.get_or_404(question_set_id)
+    
+    # Check if the question set belongs to the current user
+    if question_set.user_id != current_user.id:
+        flash('You do not have permission to view this question set.', 'danger')
+        return redirect(url_for('questions.list_documents'))
+    
+    document = Document.query.get_or_404(question_set.document_id)
+    questions = Question.query.filter_by(question_set_id=question_set.id).all()
+    
+    return render_template('questions/view_question_set.html', document=document, question_set=question_set, questions=questions)
+
+@questions.route('/question-sets/<int:question_set_id>/export')
+@login_required
+def export_question_set(question_set_id):
+    """Export a question set to PDF"""
+    question_set = QuestionSet.query.get_or_404(question_set_id)
+    
+    # Check if the question set belongs to the current user
+    if question_set.user_id != current_user.id:
+        flash('You do not have permission to export this question set.', 'danger')
+        return redirect(url_for('questions.list_documents'))
+    
+    document = Document.query.get_or_404(question_set.document_id)
+    questions = Question.query.filter_by(question_set_id=question_set.id).all()
     
     if not questions:
         flash('No questions to export.', 'warning')
-        return redirect(url_for('questions.view_questions', document_id=document.id))
+        return redirect(url_for('questions.view_question_set', question_set_id=question_set.id))
     
     # Create a temporary file for the PDF
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
         pdf_path = temp_file.name
     
-    # Get exam metadata from session or use defaults
-    exam_metadata = session.get('exam_metadata', {
-        'exam_series': 'UBTEB SERIES',
-        'programme_list': document.course.title if document.course else 'GENERAL COURSE',
-        'paper_name': document.title,
-        'paper_code': 'EXAM CODE',
-        'year_semester': 'CURRENT TERM',
-        'exam_date': 'EXAM DATE'
-    })
+    # Get exam metadata from the question set
+    exam_metadata = {
+        'exam_series': question_set.exam_series,
+        'programme_list': question_set.programme_list,
+        'paper_name': question_set.paper_name,
+        'paper_code': question_set.paper_code,
+        'year_semester': question_set.year_semester,
+        'exam_date': question_set.exam_date
+    }
     
     # Generate PDF
     export_to_pdf(document, questions, pdf_path, exam_metadata)
@@ -309,6 +370,29 @@ def export_questions(document_id):
     return send_file(
         pdf_path,
         as_attachment=True,
-        download_name=f"{document.title}_questions.pdf",
+        download_name=f"{question_set.title}.pdf",
         mimetype='application/pdf'
-    ) 
+    )
+
+@questions.route('/question-sets/<int:question_set_id>/delete', methods=['POST'])
+@login_required
+def delete_question_set(question_set_id):
+    """Delete a question set"""
+    question_set = QuestionSet.query.get_or_404(question_set_id)
+    
+    # Verify ownership
+    if question_set.user_id != current_user.id:
+        flash('You do not have permission to delete this question set.', 'danger')
+        return redirect(url_for('questions.list_documents'))
+    
+    document_id = question_set.document_id
+    
+    try:
+        db.session.delete(question_set)  # This will also delete associated questions due to cascade
+        db.session.commit()
+        flash('Question set deleted successfully.', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'An error occurred: {str(e)}', 'danger')
+    
+    return redirect(url_for('questions.list_question_sets', document_id=document_id)) 

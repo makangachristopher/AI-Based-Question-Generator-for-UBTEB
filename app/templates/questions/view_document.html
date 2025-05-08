@@ -16,18 +16,16 @@
                 </ol>
             </nav>
             <h1 class="mb-3">{{ document.title }}</h1>
-            <p class="lead">View document details and manage questions.</p>
+            <p class="lead">View document details and manage question sets.</p>
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group" role="group">
-                <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" class="btn btn-success">
-                    <i class="fas fa-brain me-2"></i>Generate Questions
+                <a href="{{ url_for('questions.list_question_sets', document_id=document.id) }}" class="btn btn-primary btn-lg">
+                    <i class="fas fa-list-ul me-2"></i>View Question Sets
                 </a>
-                {% if document.questions %}
-                    <a href="{{ url_for('questions.view_questions', document_id=document.id) }}" class="btn btn-primary">
-                        <i class="fas fa-question-circle me-2"></i>View Questions
-                    </a>
-                {% endif %}
+                <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" class="btn btn-success btn-lg">
+                    <i class="fas fa-brain me-2"></i>Generate New Question Set
+                </a>
                 <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal">
                     <i class="fas fa-trash me-2"></i>Delete
                 </button>
@@ -42,7 +40,7 @@
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                         </div>
                         <div class="modal-body">
-                            Are you sure you want to delete the document "{{ document.title }}"? This will also delete all associated questions and cannot be undone.
+                            Are you sure you want to delete the document "{{ document.title }}"? This will also delete all associated question sets and cannot be undone.
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -82,8 +80,8 @@
                         </li>
                         {% endif %}
                         <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <span><strong>Questions:</strong></span>
-                            <span class="badge bg-primary rounded-pill">{{ document.questions|length }}</span>
+                            <span><strong>Question Sets:</strong></span>
+                            <span class="badge bg-primary rounded-pill">{{ document.question_sets|length }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between align-items-center">
                             <span><strong>Content Length:</strong></span>
@@ -93,46 +91,49 @@
                 </div>
             </div>
             
-            {% if document.questions %}
+            {% if document.question_sets %}
                 <div class="card">
                     <div class="card-header bg-light">
-                        <h5 class="mb-0">Question Statistics</h5>
+                        <h5 class="mb-0">Question Set Information</h5>
                     </div>
                     <div class="card-body">
                         <div class="mb-3">
-                            <h6>Question Types</h6>
-                            <div class="progress mb-2">
-                                {% set mc_count = document.questions|selectattr('question_type', 'equalto', 'multiple_choice')|list|length %}
-                                {% set structured_count = document.questions|selectattr('question_type', 'equalto', 'structured')|list|length %}
-                                {% set mc_percent = (mc_count / document.questions|length * 100)|int %}
-                                {% set structured_percent = (structured_count / document.questions|length * 100)|int %}
-                                
-                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ mc_percent }}%" aria-valuenow="{{ mc_percent }}" aria-valuemin="0" aria-valuemax="100">{{ mc_percent }}%</div>
-                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ structured_percent }}%" aria-valuenow="{{ structured_percent }}" aria-valuemin="0" aria-valuemax="100">{{ structured_percent }}%</div>
-                            </div>
-                            <div class="d-flex justify-content-between">
-                                <small><span class="badge bg-info me-1"></span> Multiple Choice ({{ mc_count }})</small>
-                                <small><span class="badge bg-success me-1"></span> Structured ({{ structured_count }})</small>
-                            </div>
+                            <h6>Latest Sets</h6>
+                            <ul class="list-group list-group-flush">
+                                {% set sorted_sets = document.question_sets|sort(attribute='created_at', reverse=True) %}
+                                {% for question_set in sorted_sets %}
+                                    {% if loop.index <= 3 %}
+                                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                                        <a href="{{ url_for('questions.view_question_set', question_set_id=question_set.id) }}">
+                                            {{ question_set.title|truncate(30) }}
+                                        </a>
+                                        <small class="text-muted">{{ question_set.created_at.strftime('%Y-%m-%d') }}</small>
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
                         </div>
                         
                         <div>
                             <h6>Difficulty Levels</h6>
                             <div class="progress mb-2">
-                                {% set easy_count = document.questions|selectattr('difficulty', 'equalto', 'easy')|list|length %}
-                                {% set medium_count = document.questions|selectattr('difficulty', 'equalto', 'medium')|list|length %}
-                                {% set hard_count = document.questions|selectattr('difficulty', 'equalto', 'hard')|list|length %}
-                                {% set mixed_count = document.questions|selectattr('difficulty', 'equalto', 'mixed')|list|length %}
+                                {% set easy_count = document.question_sets|selectattr('difficulty', 'equalto', 'easy')|list|length %}
+                                {% set medium_count = document.question_sets|selectattr('difficulty', 'equalto', 'medium')|list|length %}
+                                {% set hard_count = document.question_sets|selectattr('difficulty', 'equalto', 'hard')|list|length %}
+                                {% set mixed_count = document.question_sets|selectattr('difficulty', 'equalto', 'mixed')|list|length %}
+                                {% set total_count = document.question_sets|length %}
                                 
-                                {% set easy_percent = (easy_count / document.questions|length * 100)|int %}
-                                {% set medium_percent = (medium_count / document.questions|length * 100)|int %}
-                                {% set hard_percent = (hard_count / document.questions|length * 100)|int %}
-                                {% set mixed_percent = (mixed_count / document.questions|length * 100)|int %}
-                                
-                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ easy_percent }}%" aria-valuenow="{{ easy_percent }}" aria-valuemin="0" aria-valuemax="100">{{ easy_percent }}%</div>
-                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ medium_percent }}%" aria-valuenow="{{ medium_percent }}" aria-valuemin="0" aria-valuemax="100">{{ medium_percent }}%</div>
-                                <div class="progress-bar bg-danger" role="progressbar" style="width: {{ hard_percent }}%" aria-valuenow="{{ hard_percent }}" aria-valuemin="0" aria-valuemax="100">{{ hard_percent }}%</div>
-                                <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ mixed_percent }}%" aria-valuenow="{{ mixed_percent }}" aria-valuemin="0" aria-valuemax="100">{{ mixed_percent }}%</div>
+                                {% if total_count > 0 %}
+                                    {% set easy_percent = (easy_count / total_count * 100)|int %}
+                                    {% set medium_percent = (medium_count / total_count * 100)|int %}
+                                    {% set hard_percent = (hard_count / total_count * 100)|int %}
+                                    {% set mixed_percent = (mixed_count / total_count * 100)|int %}
+                                    
+                                    <div class="progress-bar bg-success" role="progressbar" style="width: {{ easy_percent }}%" aria-valuenow="{{ easy_percent }}" aria-valuemin="0" aria-valuemax="100">{{ easy_percent }}%</div>
+                                    <div class="progress-bar bg-warning" role="progressbar" style="width: {{ medium_percent }}%" aria-valuenow="{{ medium_percent }}" aria-valuemin="0" aria-valuemax="100">{{ medium_percent }}%</div>
+                                    <div class="progress-bar bg-danger" role="progressbar" style="width: {{ hard_percent }}%" aria-valuenow="{{ hard_percent }}" aria-valuemin="0" aria-valuemax="100">{{ hard_percent }}%</div>
+                                    <div class="progress-bar bg-secondary" role="progressbar" style="width: {{ mixed_percent }}%" aria-valuenow="{{ mixed_percent }}" aria-valuemin="0" aria-valuemax="100">{{ mixed_percent }}%</div>
+                                {% endif %}
                             </div>
                             <div class="d-flex justify-content-between flex-wrap">
                                 <small><span class="badge bg-success me-1"></span> Easy ({{ easy_count }})</small>
@@ -154,8 +155,8 @@
                 <div class="card-body">
                     <div class="document-preview p-3 bg-light rounded" style="max-height: 500px; overflow-y: auto;">
                         {% set paragraphs = document.content.split('\n\n') %}
-                        {% for paragraph in paragraphs[:10] %}
-                            {% if paragraph.strip() %}
+                        {% for paragraph in paragraphs %}
+                            {% if loop.index <= 10 and paragraph.strip() %}
                                 <p>{{ paragraph }}</p>
                             {% endif %}
                         {% endfor %}
@@ -169,34 +170,37 @@
                 </div>
             </div>
             
-            {% if document.questions %}
+            {% if document.question_sets %}
                 <div class="card mt-4">
                     <div class="card-header bg-light">
                         <div class="d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Recent Questions</h5>
-                            <a href="{{ url_for('questions.view_questions', document_id=document.id) }}" class="btn btn-sm btn-primary">View All</a>
+                            <h5 class="mb-0">Recent Question Sets</h5>
+                            <a href="{{ url_for('questions.list_question_sets', document_id=document.id) }}" class="btn btn-sm btn-primary">View All</a>
                         </div>
                     </div>
                     <div class="card-body">
                         <div class="list-group">
-                            {% for question in document.questions|sort(attribute='created_at', reverse=True)|batch(5)|first|default([]) %}
+                            {% set sorted_sets = document.question_sets|sort(attribute='created_at', reverse=True) %}
+                            {% for question_set in sorted_sets %}
+                                {% if loop.index <= 3 %}
                                 <div class="list-group-item">
                                     <div class="d-flex w-100 justify-content-between">
-                                        <h6 class="mb-1">
-                                            <span class="badge {% if question.question_type == 'multiple_choice' %}bg-info{% else %}bg-success{% endif %} me-2">
-                                                {{ question.question_type|replace('_', ' ')|title }}
-                                            </span>
-                                            {{ question.content }}
-                                        </h6>
-                                        <small class="text-muted">{{ question.difficulty|title }}</small>
+                                        <h6 class="mb-1">{{ question_set.title }}</h6>
+                                        <small class="text-muted">{{ question_set.created_at.strftime('%Y-%m-%d %H:%M') }}</small>
                                     </div>
                                     <p class="mb-1">
-                                        <strong>Answer:</strong> {{ question.answer }}
+                                        <span class="badge bg-primary me-1">Difficulty: {{ question_set.difficulty|title }}</span>
+                                        <span class="badge bg-info me-1">Questions: 
+                                            {% set questions = question_set.questions %}
+                                            {{ questions|length }}
+                                        </span>
                                     </p>
                                     <div class="d-flex justify-content-end">
-                                        <a href="{{ url_for('questions.edit_question', question_id=question.id) }}" class="btn btn-sm btn-outline-primary">Edit</a>
+                                        <a href="{{ url_for('questions.view_question_set', question_set_id=question_set.id) }}" class="btn btn-sm btn-outline-primary me-2">View</a>
+                                        <a href="{{ url_for('questions.export_question_set', question_set_id=question_set.id) }}" class="btn btn-sm btn-outline-success">Export</a>
                                     </div>
                                 </div>
+                                {% endif %}
                             {% endfor %}
                         </div>
                     </div>
@@ -205,10 +209,10 @@
                 <div class="card mt-4">
                     <div class="card-body text-center py-4">
                         <i class="fas fa-question-circle fa-3x text-muted mb-3"></i>
-                        <h5>No Questions Generated Yet</h5>
-                        <p class="text-muted mb-3">Generate questions to start creating your quiz.</p>
+                        <h5>No Question Sets Generated Yet</h5>
+                        <p class="text-muted mb-3">Generate question sets to start creating your exams.</p>
                         <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" class="btn btn-primary">
-                            <i class="fas fa-brain me-2"></i>Generate Questions
+                            <i class="fas fa-brain me-2"></i>Generate Question Set
                         </a>
                     </div>
                 </div>

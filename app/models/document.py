@@ -16,6 +16,7 @@ class Document(db.Model):
     
     # Relationships
     questions = db.relationship('Question', backref='document', lazy=True, cascade="all, delete-orphan")
+    question_sets = db.relationship('QuestionSet', backref='document', lazy=True, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"Document('{self.title}', '{self.filename}')" 
