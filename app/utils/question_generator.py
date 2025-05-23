@@ -8,7 +8,9 @@ from transformers import T5Tokenizer, AutoModelForSeq2SeqLM, pipeline
 # Initialize tokenizer and model
 tokenizer = T5Tokenizer.from_pretrained(
     'valhalla/t5-base-e2e-qg',
-    model_max_length=512
+    model_max_length=512,
+    truncation=True, 
+    return_tensors="pt"
 )
 model = AutoModelForSeq2SeqLM.from_pretrained('valhalla/t5-base-e2e-qg')
 

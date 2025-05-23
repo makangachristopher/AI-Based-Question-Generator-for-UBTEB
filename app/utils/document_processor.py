@@ -1,7 +1,7 @@
 import os
-import PyPDF2
 import docx
 import traceback
+from pdfminer.high_level import extract_text as pdfminer_extract_text
 
 def process_document(file_path):
     """
@@ -29,7 +29,7 @@ def process_document(file_path):
 
 def extract_text_from_pdf(pdf_path):
     """
-    Extract text from PDF file
+    Extract text from PDF file using pdfminer.six
     
     Args:
         pdf_path (str): Path to the PDF file
@@ -37,31 +37,10 @@ def extract_text_from_pdf(pdf_path):
     Returns:
         str: Extracted text from the PDF
     """
-    text = ""
-    
     try:
-        with open(pdf_path, 'rb') as file:
-            pdf_reader = PyPDF2.PdfReader(file)
-            
-            # Check if PDF is encrypted
-            if pdf_reader.is_encrypted:
-                raise ValueError("Cannot process encrypted PDF files")
-            
-            # Process each page
-            for page_num in range(len(pdf_reader.pages)):
-                page = pdf_reader.pages[page_num]
-                page_text = page.extract_text()
-                
-                # If page has no text, add a placeholder
-                if not page_text:
-                    page_text = f"[Page {page_num + 1} contains no extractable text]"
-                    
-                text += page_text + "\n\n"
-        
-        # If entire document has no text, raise error
+        text = pdfminer_extract_text(pdf_path)
         if not text.strip():
             raise ValueError("PDF does not contain extractable text. It may be scanned or image-based.")
-            
         return text
     except Exception as e:
         print(f"Error extracting text from PDF: {str(e)}")
