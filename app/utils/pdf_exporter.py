@@ -2,7 +2,7 @@ import os
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem, BulletDrawer
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, ListFlowable, ListItem, BulletDrawer, Image, PageBreak
 
 def export_to_pdf(document, questions, output_path, exam_metadata):
     """
@@ -58,47 +58,79 @@ def export_to_pdf(document, questions, output_path, exam_metadata):
     )
 
     custom_exam_details_style = ParagraphStyle(
-        name='UbtebTitle',
+        name='Ubtebdetails',
         parent=styles['Heading1'],
         fontSize=14,
-        alignment=1  # Center alignment
+        alignment=1,  # Center alignment
+        spaceAfter=2
+    )
+    
+    custom_exam_values_style = ParagraphStyle(
+        name='UbtebValue',
+        parent=styles['Normal'],
+        fontSize=14,
+        alignment=1,  # Center alignment
+        spaceAfter=6
+    )
+
+    custom_instructions_style = ParagraphStyle(
+        name='Ubtebdetails',
+        parent=styles['Heading1'],
+        fontSize=14,
+        alignment=0,  # Center alignment
+        spaceAfter=2
     )
     
     # Content elements for the PDF
     elements = []
-    
+    logo_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'ubteb.png')
+    logo = Image(logo_path, width=150, height=120)
+    logo.hAlign = 'CENTER'
+    elements.append(logo)
+    elements.append(Spacer(1, 12))
     # Add title
     title = Paragraph("UGANDA BUSINESS AND TECHNICAL EXAMINATIONS BOARD", custom_title_style)
     elements.append(title)
-    elements.append(Spacer(1, 6))
+    elements.append(Spacer(1, 12))
     
     # Add exam series
     exam_series = Paragraph(exam_metadata.get('exam_series', 'EXAM SERIES'), custom_exam_details_style)
     elements.append(exam_series)
+    elements.append(Spacer(1, 6))
     
     # Add programme
-    programme = Paragraph(f"PROGRAMME: {exam_metadata.get('programme_list', 'PROGRAMME')}", custom_exam_details_style)
-    elements.append(programme)
-    
-    # Add paper name
-    paper_name = Paragraph(f"PAPER NAME: {exam_metadata.get('paper_name', 'PAPER NAME')}", custom_exam_details_style)
-    elements.append(paper_name)
-    
-    # Add paper code
-    paper_code = Paragraph(f"PAPER CODE: {exam_metadata.get('paper_code', 'PAPER CODE')}", custom_exam_details_style)
-    elements.append(paper_code)
-    
-    # Add year and semester
-    year_semester = Paragraph(f"{exam_metadata.get('year_semester', 'YEAR AND SEMESTER')}", custom_exam_details_style)
-    elements.append(year_semester)
-    
-    # Add exam date
-    exam_date = Paragraph(f"DATE: {exam_metadata.get('exam_date', 'EXAM DATE')}", custom_exam_details_style)
-    elements.append(exam_date)
+    paper_program_label = Paragraph("PROGRAMME", custom_exam_details_style)
+    elements.append(paper_program_label)
+    paper_program_value = Paragraph(exam_metadata.get('programme_list', 'PROGRAMME'), custom_exam_values_style)
+    elements.append(paper_program_value)
     elements.append(Spacer(1, 12))
+    # Add paper name
+    paper_name_label = Paragraph("PAPER NAME", custom_exam_details_style)
+    elements.append(paper_name_label)
+    paper_name_value = Paragraph(exam_metadata.get('paper_name', 'PAPER NAME'), custom_exam_values_style)
+    elements.append(paper_name_value)
+    elements.append(Spacer(1, 12))
+    # Add paper code
+    paper_code_label = Paragraph("PAPER CODE", custom_exam_details_style)
+    elements.append(paper_code_label)
+    paper_code_value = Paragraph(exam_metadata.get('paper_code', 'PAPER CODE'), custom_exam_values_style)
+    elements.append(paper_code_value)
+    elements.append(Spacer(1, 12))
+    # Add year and semester
+    year_semester_value = Paragraph(exam_metadata.get('year_semester', 'YEAR AND SEMESTER'), custom_exam_values_style)
+    elements.append(year_semester_value)
+    elements.append(Spacer(1, 12))
+    # Add Duration
+    duration_value = Paragraph("3 HOURS", custom_exam_details_style)
+    elements.append(duration_value)
+    elements.append(Spacer(1, 12))
+    # Add exam date
+    exam_date_value = Paragraph(exam_metadata.get('exam_date', 'EXAM DATE'), custom_exam_details_style)
+    elements.append(exam_date_value)
+    elements.append(Spacer(1, 60))
     
     # Add instructions
-    instructions = Paragraph("INSTRUCTIONS TO CANDIDATES:", styles['Normal'])
+    instructions = Paragraph("INSTRUCTIONS TO CANDIDATES:", custom_instructions_style)
     elements.append(instructions)
     elements.append(Spacer(1, 6))
     
@@ -122,14 +154,14 @@ def export_to_pdf(document, questions, output_path, exam_metadata):
     elements.append(bullet_list)
     
     elements.append(Spacer(1, 20))
-    
+    elements.append(PageBreak())
     # Separate questions by type
     section_a_questions = [q for q in questions if q.question_type == 'section_a']
     section_b_questions = [q for q in questions if q.question_type == 'section_b']
     
     # Add Section A
     if section_a_questions:
-        section_a_header = Paragraph("SECTION A: ANSWER ALL QUESTIONS (20 Marks)", custom_section_header)
+        section_a_header = Paragraph("SECTION A (20 Marks)", custom_section_header)
         elements.append(section_a_header)
         elements.append(Spacer(1, 10))
         
@@ -145,7 +177,7 @@ def export_to_pdf(document, questions, output_path, exam_metadata):
     # Add Section B
     if section_b_questions:
         elements.append(Spacer(1, 20))
-        section_b_header = Paragraph("SECTION B: ANSWER ANY FOUR QUESTIONS (80 Marks)", custom_section_header)
+        section_b_header = Paragraph("SECTION B (80 Marks)", custom_section_header)
         elements.append(section_b_header)
         elements.append(Spacer(1, 10))
         

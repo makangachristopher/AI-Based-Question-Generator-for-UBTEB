@@ -237,85 +237,110 @@ def ensure_question_count(questions, target_count, question_type, sentences, dif
     return questions + additional_questions[:additional_needed]
 
 def generate_structured_questions(sentences, num_questions, difficulty):
-    """Generate structured questions from sentences"""
+    """Generate structured questions from sentences following UBTEB format"""
     questions = []
     num_to_generate = min(num_questions, len(sentences))
     
-    # Increase the number of attempts per sentence to ensure we get more questions
-    max_attempts_per_sentence = 4
-    max_sentences_to_try = min(len(sentences), num_questions * 2)
+    # Section A question patterns (short answer)
+    section_a_patterns = [
+        "Define the term {}.",
+        "State two {}.",
+        "Explain the term {}.",
+        "Outline two {}.",
+        "Identify two {}.",
+        "Mention two {}.",
+        "List the {}.",
+        "Describe the {}."
+    ]
+    
+    # Section B question patterns (long answer)
+    section_b_patterns = [
+        "Discuss the importance of {}.",
+        "Explain five factors that influence {}.",
+        "Analyze the role of {} in {}.",
+        "Evaluate the impact of {} on {}.",
+        "Compare and contrast different aspects of {}.",
+        "Assess the effectiveness of {}.",
+        "Examine the relationship between {} and {}.",
+        "Describe how {} can be applied in {}."
+    ]
+    
+    # Action verbs based on difficulty
+    difficulty_verbs = {
+        'easy': ['define', 'state', 'list', 'identify', 'mention', 'outline'],
+        'medium': ['explain', 'describe', 'discuss', 'analyze', 'examine'],
+        'hard': ['evaluate', 'assess', 'critically analyze', 'compare and contrast', 'synthesize']
+    }
     
     # Try generating from each sentence until we have enough questions
-    for i in range(max_sentences_to_try):
-        if i >= len(sentences):
-            break
-            
+    for i in range(len(sentences)):
         if len(questions) >= num_questions:
             break
             
         context = sentences[i]
-        question_text = None
-        answer = None
         
-        # Modified prompt to strongly enforce staying within the content (anti-hallucination)
-        prompt = f"Generate exactly one question from this SPECIFIC text. The question MUST be answerable ONLY from the text provided. Do not make up information or add external knowledge: {context}"
+        # Extract key terms from the context
+        words = context.split()
+        key_terms = []
+        for word in words:
+            if len(word) > 4 and word.lower() not in ['about', 'their', 'which', 'would', 'could', 'should']:
+                key_terms.append(word.strip('.,;:?!'))
         
-        # Try multiple times per sentence to get a valid question
-        for attempt in range(max_attempts_per_sentence):
-            generated_output = question_generator(
-                prompt, 
-                max_length=64, 
-                num_return_sequences=1,
-                do_sample=True,
-                temperature=0.5,  # Lower temperature to reduce creativity/hallucination
-                top_p=0.85,
-                no_repeat_ngram_size=3,
-                early_stopping=True  # Enable early stopping
-            )[0]['generated_text']
+        if not key_terms:
+            continue
             
-            # Clean and validate the question
-            cleaned_question = clean_question_text(generated_output)
-            if cleaned_question and '?' in cleaned_question:
-                # Verify the answer exists in the context with higher threshold
-                potential_answer = answer_generator(
-                    question=cleaned_question,
-                    context=context
-                )
+        # Select appropriate patterns based on difficulty
+        if difficulty == 'easy':
+            patterns = section_a_patterns
+        elif difficulty == 'hard':
+            patterns = section_b_patterns
+        else:  # medium or mixed
+            patterns = section_a_patterns + section_b_patterns
+            
+        # Generate questions using the patterns
+        for pattern in patterns:
+            if len(questions) >= num_questions:
+                break
                 
-                # Stricter confidence threshold to ensure only relevant questions
-                confidence_threshold = 0.6
+            # Select a key term for the question
+            term = random.choice(key_terms)
+            
+            # Generate the question
+            num_placeholders = pattern.count('{}')
+            if num_placeholders == 2:
+                term2 = random.choice([t for t in key_terms if t != term]) if len(key_terms) > 1 else term
+                question_text = pattern.format(term, term2)
+            else:
+                question_text = pattern.format(term)
+            
+            # Add question mark if not present
+            if not question_text.endswith('?'):
+                question_text += '?'
+            
+            # Verify the answer exists in the context
+            answer_result = answer_generator(
+                question=question_text,
+                context=context
+            )
+            
+            if answer_result['score'] > 0.6:  # Confidence threshold
+                # Check for duplicates
+                is_duplicate = False
+                for existing_q in questions:
+                    if existing_q['question'].lower() == question_text.lower():
+                        is_duplicate = True
+                        break
                 
-                if potential_answer['score'] > confidence_threshold:
-                    # Verify answer appears literally in the context
-                    if potential_answer['answer'] in context:
-                        question_text = cleaned_question
-                        answer = potential_answer
-                        break  # Got a good question, exit retry loop
-        
-        # Only add new questions if they're different from existing ones
-        if question_text and answer:
-            # Check if this question is too similar to ones we already have
-            is_duplicate = False
-            for existing_q in questions:
-                # Basic similarity check - if questions share many words
-                existing_words = set(existing_q['question'].lower().split())
-                new_words = set(question_text.lower().split())
-                overlap = len(existing_words.intersection(new_words)) / len(existing_words.union(new_words))
-                
-                if overlap > 0.7:  # More than 70% word overlap
-                    is_duplicate = True
-                    break
-                    
-            if not is_duplicate:
-                questions.append({
-                    'question': question_text,
-                    'answer': answer['answer'],
-                    'context': context,
-                    'type': 'structured',
-                    'confidence': answer['score']
-                })
+                if not is_duplicate:
+                    questions.append({
+                        'question': question_text,
+                        'answer': answer_result['answer'],
+                        'context': context,
+                        'type': 'structured',
+                        'confidence': answer_result['score'],
+                        'marks': 10 if pattern in section_b_patterns else 2  # Assign marks based on pattern
+                    })
     
-    # Return the number of questions requested, or as many as we could generate
     return questions[:num_questions]
 
 def generate_multiple_choice_questions(sentences, num_questions, difficulty):
@@ -467,182 +492,125 @@ Do not make up any information that's not in the text."""
     
     return distractors[:3]
 
-def clean_question_text(text):
-    """Clean up generated question text to ensure only one question is returned"""
-    # First, split on <sep> token if present and take the first part
-    if '<sep>' in text:
-        text = text.split('<sep>')[0].strip()
-    
-    # Remove common prefixes and formatting that might indicate multiple items
-    text = re.sub(r'^(Q:|Question:|A:|Answer:|\\d+[\\.\\)]|\\-|\\*)\\s*', '', text, flags=re.IGNORECASE).strip()
-    
-    # Split by newline, periods followed by space (if not ending the string), or question marks (if not ending)
-    # Prioritize splitting by newline as it often separates distinct generated questions
-    potential_questions = re.split(r'\\n+|(?<!\\w)\\.\\s+(?=\\w)|\\?(?!$)', text)
-    
-    # Find the first valid-looking question
-    question = None
-    for pq in potential_questions:
-        pq = pq.strip()
-        if len(pq.split()) >= 3 and '?' in pq: # Check length and presence of question mark
-            question = pq
-            break
-        elif len(pq.split()) >= 3 and not '?' in pq: # Check if it's just missing a question mark
-            question = pq + '?'
-            break
-    
-    if not question:
-        # Fallback if splitting didn't find a clear question
-        # Take the original text if it looks plausible, otherwise return None
-        if len(text.split()) >= 3:
-            question = text
-        else:
-            return None
-    
-    # Further cleanup on the selected question
-    # Remove any remaining leading numbering/bullets
-    question = re.sub(r'^[\\d\\-\\.\\)\\•\\*]+\\s*', '', question).strip()
-    
-    # Ensure it ends with a single question mark
-    question = question.rstrip('. ')
-    if not question.endswith('?'):
-        question += '?'
-    
-    # Handle cases where multiple question marks might still exist
-    if question.count('?') > 1:
-        question = question.split('?')[0] + '?'
-    
-    # Final length check
-    if len(question.split()) < 3:
-        return None
-    
-    return question
-
 def generate_essay_questions(sentences, num_questions, difficulty):
-    """
-    Generate essay questions that require detailed answers
-    
-    Args:
-        sentences (list): List of sentences to generate questions from
-        num_questions (int): Number of questions to generate
-        difficulty (str): Difficulty level ('easy', 'medium', 'hard')
-        
-    Returns:
-        list: List of generated essay questions with sample answers
-    """
+    """Generate essay questions following UBTEB format"""
     questions = []
-    confidence_base = {'easy': 0.85, 'medium': 0.75, 'hard': 0.65, 'mixed': 0.75}
     
-    # Group sentences into paragraphs to get more context
+    # Group sentences into paragraphs for better context
     paragraphs = []
     current_paragraph = []
     
     for sentence in sentences:
         current_paragraph.append(sentence)
-        if len(current_paragraph) >= 3:  # Consider 3+ sentences as a paragraph
+        if len(current_paragraph) >= 3:
             paragraphs.append(' '.join(current_paragraph))
             current_paragraph = []
     
-    # Add any remaining sentences as a paragraph
     if current_paragraph:
         paragraphs.append(' '.join(current_paragraph))
     
-    # If we don't have enough paragraphs, repeat some
-    while len(paragraphs) < num_questions:
-        paragraphs.extend(paragraphs[:num_questions - len(paragraphs)])
+    # Essay question patterns based on UBTEB format
+    essay_patterns = [
+        {
+            'pattern': "Discuss the importance of {} in {}.",
+            'marks': 10,
+            'parts': 2
+        },
+        {
+            'pattern': "Explain five factors that influence {}.",
+            'marks': 10,
+            'parts': 1
+        },
+        {
+            'pattern': "Analyze the role of {} in {}.",
+            'marks': 10,
+            'parts': 2
+        },
+        {
+            'pattern': "Evaluate the impact of {} on {}.",
+            'marks': 10,
+            'parts': 2
+        },
+        {
+            'pattern': "Compare and contrast different aspects of {}.",
+            'marks': 10,
+            'parts': 1
+        }
+    ]
     
-    # Shuffle and select paragraphs
-    random.shuffle(paragraphs)
-    selected_paragraphs = paragraphs[:num_questions]
-    
-    # Essay-type question prompts based on difficulty
-    essay_prompts = {
-        'easy': [
-            "Explain in detail {}.",
-            "Discuss the importance of {} in the given context.",
-            "Describe the main concepts related to {}.",
-            "Elaborate on the relationship between {} and the main topic.",
-            "Write a comprehensive explanation of {}."
-        ],
-        'medium': [
-            "Analyze the implications of {} and discuss its significance.",
-            "Compare and contrast different aspects of {} and evaluate their importance.",
-            "Critically examine the role of {} in the broader context.",
-            "Evaluate the effectiveness of {} and provide examples to support your answer.",
-            "Investigate the factors that influence {} and explain their impact."
-        ],
-        'hard': [
-            "Critically evaluate the arguments for and against {} and develop your own position.",
-            "Synthesize information about {} and formulate a comprehensive theory or framework.",
-            "Assess the validity of different approaches to understanding {} and propose improvements.",
-            "Formulate a detailed argument about the significance of {} with reference to theoretical perspectives.",
-            "Develop a critical analysis of {} and its implications for future developments in this field."
-        ]
-    }
-    
-    # Use mixed difficulty if specified
-    current_prompts = essay_prompts.get(
-        difficulty if difficulty != 'mixed' else random.choice(['easy', 'medium', 'hard'])
-    )
-    
-    for idx, paragraph in enumerate(selected_paragraphs):
-        if idx >= num_questions:
-            break
-            
-        # Extract key subjects from the paragraph
+    for paragraph in paragraphs[:num_questions]:
+        # Extract key terms
         words = paragraph.split()
-        nouns = []
+        key_terms = []
+        for word in words:
+            if len(word) > 4 and word.lower() not in ['about', 'their', 'which', 'would', 'could', 'should']:
+                key_terms.append(word.strip('.,;:?!'))
         
-        for i in range(0, len(words) - 1):
-            # Simple heuristic: words not in common stop words might be subjects
-            if words[i].lower() not in ['the', 'a', 'an', 'of', 'for', 'and', 'or', 'but', 'in', 'on', 'at']:
-                nouns.append(words[i])
+        if not key_terms:
+            continue
+            
+        # Select a pattern
+        pattern = random.choice(essay_patterns)
         
-        # Select a subject for the question
-        if nouns:
-            subject = random.choice(nouns).strip('.,;:?!')
-            # If the subject is too short or empty after stripping, try to get a phrase
-            if not subject or len(subject) < 4:
-                # Find the original subject before stripping
-                original_subject = random.choice(nouns)
-                # Try to find the original noun's position
-                try:
-                    idx = words.index(original_subject)
-                    if idx < len(words) - 2:
-                        subject = ' '.join(words[idx:idx+3]).strip('.,;:?!')
-                    else:
-                        subject = original_subject  # Fallback to original if we can't get a phrase
-                except ValueError:
-                    # If we can't find the original subject for some reason, use fallback
-                    subject = "this topic"
-        else:
-            # Fallback if no suitable nouns found
-            subject = "this topic"
+        # Generate question parts
+        parts = []
+        for i in range(pattern['parts']):
+            term = random.choice(key_terms)
+            part_text = pattern['pattern'].format(term, random.choice(key_terms) if pattern['parts'] > 1 else '')
+            if not part_text.endswith('?'):
+                part_text += '?'
+            parts.append({
+                'text': part_text,
+                'marks': pattern['marks']
+            })
         
-        # Ensure subject is never empty
-        if not subject or subject.strip() == "":
-            subject = "this topic"
+        # Verify answers exist in context
+        valid_parts = []
+        for part in parts:
+            answer_result = answer_generator(
+                question=part['text'],
+                context=paragraph
+            )
+            
+            if answer_result['score'] > 0.6:
+                valid_parts.append({
+                    'text': part['text'],
+                    'marks': part['marks'],
+                    'answer': answer_result['answer']
+                })
         
-        # Generate the question using a prompt template
-        prompt = random.choice(current_prompts)
-        question_text = prompt.format(subject)
-        
-        # Clean up the question text
-        question_text = clean_question_text(question_text)
-        
-        # Generate a sample answer framework (this would be just guidance)
-        sample_answer = f"A comprehensive answer about {subject} should include:\n\n"
-        sample_answer += f"1. Introduction to {subject} and its context\n"
-        sample_answer += f"2. Key aspects and characteristics of {subject}\n"
-        sample_answer += f"3. Analysis of the importance and implications of {subject}\n"
-        sample_answer += f"4. Examples and evidence related to {subject}\n"
-        sample_answer += f"5. Conclusion summarizing the main points about {subject}"
-        
-        questions.append({
-            'question': question_text,
-            'answer': sample_answer,
-            'context': paragraph,
-            'confidence': confidence_base[difficulty if difficulty != 'mixed' else 'medium'] * (0.9 + 0.2 * random.random())
-        })
+        if valid_parts:
+            questions.append({
+                'question': valid_parts,
+                'context': paragraph,
+                'type': 'essay',
+                'confidence': 0.8
+            })
     
-    return questions
+    return questions[:num_questions]
+
+def clean_question_text(text):
+    """Clean and validate question text according to UBTEB format"""
+    # Remove common prefixes
+    text = re.sub(r'^(Q:|Question:|A:|Answer:|\d+[\.\)]|\-|\*)\s*', '', text, flags=re.IGNORECASE).strip()
+    
+    # Ensure proper capitalization
+    text = text[0].upper() + text[1:]
+    
+    # Remove multiple spaces
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Ensure proper punctuation
+    text = text.rstrip('. ')
+    if not text.endswith('?'):
+        text += '?'
+    
+    # Validate question structure
+    if len(text.split()) < 3:
+        return None
+        
+    # Check for required elements based on UBTEB format
+    if not any(verb in text.lower() for verb in ['define', 'state', 'explain', 'outline', 'identify', 'mention', 'list', 'describe', 'discuss', 'analyze', 'evaluate', 'compare', 'assess']):
+        return None
+    
+    return text
