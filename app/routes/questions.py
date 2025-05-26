@@ -1,4 +1,5 @@
 import os
+import json
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -192,9 +193,14 @@ def generate_questions_form(document_id):
         
         # Save all questions to database with the question_set_id
         for q in section_a_questions:
+            # Convert answer to JSON string if it's a dictionary
+            answer = q['answer']
+            if isinstance(answer, dict):
+                answer = json.dumps(answer)
+                
             question = Question(
                 content=q['question'],
-                answer=q['answer'],
+                answer=answer,
                 options=None,
                 question_type='section_a',  # Mark as Section A
                 difficulty=form.difficulty.data,
@@ -205,9 +211,14 @@ def generate_questions_form(document_id):
             db.session.add(question)
         
         for q in section_b_questions:
+            # Convert answer to JSON string if it's a dictionary
+            answer = q['answer']
+            if isinstance(answer, dict):
+                answer = json.dumps(answer)
+                
             question = Question(
                 content=q['question'],
-                answer=q['answer'],
+                answer=answer,
                 options=None,
                 question_type='section_b',  # Mark as Section B
                 difficulty=form.difficulty.data,

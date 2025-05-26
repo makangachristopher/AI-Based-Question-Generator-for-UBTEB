@@ -1,9 +1,17 @@
 import torch
 import re
 import random
+import os
+import json
+import socket
 from nltk.tokenize import sent_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
 from transformers import T5Tokenizer, AutoModelForSeq2SeqLM, pipeline
+from openai import OpenAI
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Initialize tokenizer and model
 tokenizer = T5Tokenizer.from_pretrained(
@@ -24,7 +32,32 @@ question_generator = pipeline(
 )
 answer_generator = pipeline('question-answering', model='deepset/roberta-base-squad2', device=device)
 
-def generate_questions(text, num_questions=7, question_type='structured', difficulty='medium'):
+# Initialize Perplexity AI API client
+perplexity_api_key = os.getenv('API')
+perplexity_client = None
+
+# Check for internet connection
+def has_internet_connection():
+    try:
+        # Try to connect to a reliable server
+        socket.create_connection(("8.8.8.8", 53), timeout=3)
+        return True
+    except OSError:
+        return False
+
+# Initialize Perplexity if API key exists and internet is available
+if perplexity_api_key and has_internet_connection():
+    try:
+        perplexity_client = OpenAI(
+            api_key=perplexity_api_key,
+            base_url="https://api.perplexity.ai"
+        )
+        print("Perplexity AI API initialized successfully.")
+    except Exception as e:
+        print(f"Failed to initialize Perplexity AI API: {str(e)}")
+        perplexity_client = None
+
+def generate_questions(text, num_questions=7, question_type='structured', difficulty='medium', use_perplexity=True):
     """
     Generate questions from document text
     
@@ -33,6 +66,7 @@ def generate_questions(text, num_questions=7, question_type='structured', diffic
         num_questions (int): Number of questions to generate (1-50)
         question_type (str): Type of questions to generate ('structured', 'essay', or 'section_a')
         difficulty (str): Difficulty level ('easy', 'medium', 'hard')
+        use_deepseek (bool): Whether to use DeepSeek API for generation when available
         
     Returns:
         list: List of generated questions with answers
@@ -40,6 +74,45 @@ def generate_questions(text, num_questions=7, question_type='structured', diffic
     # Validate and cap number of questions
     num_questions = min(max(1, int(num_questions)), 50)
     
+    # Check internet connection again (in case it changed since initialization)
+    internet_available = has_internet_connection()
+    
+    # If Perplexity should be used and is available with internet connection
+    if use_perplexity and perplexity_client and internet_available:
+        print("Using Perplexity AI API for question generation...")
+        perplexity_questions = generate_questions_with_perplexity(text, num_questions, question_type, difficulty)
+        
+        # If we got enough questions from Perplexity, return them
+        if len(perplexity_questions) >= num_questions:
+            return perplexity_questions
+        
+        # If Perplexity didn't return enough questions, we'll supplement with Valhalla model
+        print(f"Perplexity returned {len(perplexity_questions)} questions. Supplementing with Valhalla model...")
+        remaining_questions = num_questions - len(perplexity_questions)
+        
+        # Generate remaining questions with Valhalla model
+        valhalla_questions = generate_questions_with_valhalla(text, remaining_questions, question_type, difficulty)
+        
+        # Combine the questions
+        combined_questions = perplexity_questions + valhalla_questions
+        return combined_questions[:num_questions]
+    
+    # Use the Valhalla model
+    return generate_questions_with_valhalla(text, num_questions, question_type, difficulty)
+
+def generate_questions_with_valhalla(text, num_questions, question_type, difficulty):
+    """
+    Generate questions using the local Valhalla model
+    
+    Args:
+        text (str): Document text
+        num_questions (int): Number of questions to generate
+        question_type (str): Type of questions to generate
+        difficulty (str): Difficulty level
+        
+    Returns:
+        list: List of generated questions with answers
+    """
     # Preprocess the text
     sentences = sent_tokenize(text)
     sentences = [s.strip() for s in sentences if len(s.split()) > 5]
@@ -197,7 +270,7 @@ def ensure_question_count(questions, target_count, question_type, sentences, dif
             answer = f"Key points about {subject} from the text."
             
             additional_questions.append({
-                'question': question_text,
+                'question': question_text,  
                 'answer': answer,
                 'context': context,
                 'type': question_type,
@@ -339,6 +412,164 @@ def clean_question_text(text):
         return None
     
     return question
+
+def generate_questions_with_perplexity(text, num_questions, question_type, difficulty):
+    """
+    Generate questions using the Perplexity AI API
+    
+    Args:
+        text (str): Document text
+        num_questions (int): Number of questions to generate
+        question_type (str): Type of questions to generate
+        difficulty (str): Difficulty level
+        
+    Returns:
+        list: List of generated questions with answers
+    """
+    questions = []
+    
+    # Prepare the prompt based on question type
+    if question_type == 'section_a':
+        system_prompt = """You are an expert question generator for educational assessments. 
+        Generate concise, direct questions in the style of Section A exam questions.
+        Each question should start with an action verb like 'Define', 'State', 'Explain', 'Outline', 'Identify', etc.
+        Questions should be brief and focused on specific concepts.
+        
+        Examples of good questions:
+        - Define the term marketing.
+        - State two philosophies under which marketing concept is centered.
+        - Explain the term production concept.
+        - Outline two features of the product concept.
+        - Identify two considerations underlying the societal marketing concept.
+        """
+        
+        user_prompt = f"""Generate {num_questions} {difficulty} difficulty Section A style questions based on the following text. 
+        Make sure each question starts with an action verb (Define, State, Explain, etc.) and is concise.
+        For each question, also provide a brief answer.
+        
+        Text: {text}
+        
+        Format your response as a JSON array with 'question' and 'answer' fields for each question.
+        """
+    elif question_type == 'essay':
+        system_prompt = """You are an expert question generator for educational assessments.
+        Generate essay questions that require detailed answers and critical thinking.
+        Questions should be open-ended and encourage analysis, evaluation, or synthesis.
+        """
+        
+        user_prompt = f"""Generate {num_questions} {difficulty} difficulty essay questions based on the following text.
+        For each question, also provide a brief outline of what a good answer should include.
+        
+        Text: {text}
+        
+        Format your response as a JSON array with 'question' and 'answer' fields for each question.
+        """
+    else:  # structured questions
+        system_prompt = """You are an expert question generator for educational assessments.
+        Generate structured questions that test understanding of specific concepts.
+        Questions should be clear, focused, and have definite answers that can be found in the text.
+        """
+        
+        user_prompt = f"""Generate {num_questions} {difficulty} difficulty structured questions based on the following text.
+        Each question should have a clear answer that can be found in or inferred from the text.
+        For each question, also provide the answer.
+        
+        Text: {text}
+        
+        Format your response as a JSON array with 'question' and 'answer' fields for each question.
+        """
+    
+    try:
+        # Call the Perplexity AI API
+        response = perplexity_client.chat.completions.create(
+            model="r1-1776",  # Using Perplexity's model with online search capability
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt}
+            ],
+            temperature=0.7,
+            max_tokens=2000
+        )
+        
+        # Extract the response content
+        content = response.choices[0].message.content
+        
+        # Try to parse the JSON response
+        try:
+            # First try to extract JSON if it's wrapped in markdown code blocks
+            if "```json" in content and "```" in content.split("```json")[1]:
+                json_str = content.split("```json")[1].split("```")[0].strip()
+                generated_questions = json.loads(json_str)
+            elif "```" in content and "```" in content.split("```")[1]:
+                json_str = content.split("```")[1].split("```")[0].strip()
+                generated_questions = json.loads(json_str)
+            else:
+                # If no code blocks, try to parse the whole response
+                generated_questions = json.loads(content)
+                
+            # Process the questions
+            for q in generated_questions:
+                if isinstance(q, dict) and 'question' in q and 'answer' in q:
+                    questions.append({
+                        'question': q['question'],
+                        'answer': q['answer'],
+                        'context': text[:200] + '...',  # Use a snippet of the text as context
+                        'type': question_type,
+                        'confidence': 0.9  # DeepSeek responses generally have high confidence
+                    })
+        except json.JSONDecodeError:
+            # If JSON parsing fails, extract questions manually
+            # This is a fallback in case the model doesn't return proper JSON
+            lines = content.split('\n')
+            current_question = None
+            current_answer = ""
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Check if line starts with a question pattern (number, Q:, etc.)
+                if re.match(r'^\d+\.\s|^Q\d+:|^Question\s\d+:|^[A-Z][a-z]+:', line):
+                    # Save previous question if exists
+                    if current_question:
+                        questions.append({
+                            'question': current_question,
+                            'answer': current_answer.strip(),
+                            'context': text[:200] + '...',
+                            'type': question_type,
+                            'confidence': 0.8
+                        })
+                    
+                    # Extract new question
+                    current_question = re.sub(r'^\d+\.\s|^Q\d+:|^Question\s\d+:|^[A-Z][a-z]+:\s', '', line)
+                    current_answer = ""
+                elif line.startswith('Answer:') or line.startswith('A:'):
+                    current_answer = re.sub(r'^Answer:|^A:', '', line).strip()
+                elif current_question and not current_answer:
+                    current_question += " " + line
+                elif current_answer:
+                    current_answer += "\n" + line
+            
+            # Add the last question
+            if current_question:
+                questions.append({
+                    'question': current_question,
+                    'answer': current_answer.strip(),
+                    'context': text[:200] + '...',
+                    'type': question_type,
+                    'confidence': 0.8
+                })
+    except Exception as e:
+        print(f"Error using Perplexity AI API: {str(e)}")
+        # Fall back to local model if Perplexity fails
+        return generate_questions_with_valhalla(text, num_questions, question_type, difficulty)
+    
+    # Ensure we have the requested number of questions
+    if len(questions) > num_questions:
+        questions = questions[:num_questions]
+    
+    return questions
 
 def generate_section_a_questions(sentences, num_questions, difficulty):
     """
