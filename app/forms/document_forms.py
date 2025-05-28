@@ -43,5 +43,8 @@ class QuestionGenerationForm(FlaskForm):
         ('hard', 'Hard'),
         ('mixed', 'Mixed')
     ], default='medium')
-    
+
+    section_a_count = IntegerField('Number of Section A Questions', validators=[DataRequired(), NumberRange(min=1, max=20)], default=10)
+    section_b_count = IntegerField('Number of Section B Questions', validators=[DataRequired(), NumberRange(min=1, max=20)], default=5)
+
     submit = SubmitField('Generate Questions') 

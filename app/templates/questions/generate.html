@@ -161,6 +161,33 @@
                             </div>
                         </div>
                         
+                        <div class="mb-3">
+                            {{ form.section_a_count.label(class="form-label") }}
+                            {% if form.section_a_count.errors %}
+                                {{ form.section_a_count(class="form-control is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.section_a_count.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {{ form.section_a_count(class="form-control") }}
+                            {% endif %}
+                        </div>
+                        <div class="mb-4">
+                            {{ form.section_b_count.label(class="form-label") }}
+                            {% if form.section_b_count.errors %}
+                                {{ form.section_b_count(class="form-control is-invalid") }}
+                                <div class="invalid-feedback">
+                                    {% for error in form.section_b_count.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                {{ form.section_b_count(class="form-control") }}
+                            {% endif %}
+                        </div>
+                        
                         <div class="alert alert-warning mb-4">
                             <i class="fas fa-info-circle me-2"></i>
                             Question generation may take a few moments depending on the document size and complexity.

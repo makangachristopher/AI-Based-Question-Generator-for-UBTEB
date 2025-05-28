@@ -155,18 +155,18 @@ def generate_questions_form(document_id):
         form.exam_date.data = date.today()
     
     if form.validate_on_submit():
-        # Generate structured questions for Section A (10 short answer questions)
+        # Generate structured questions for Section A (user-specified number)
         section_a_questions = generate_questions(
             document.content,
-            10,  # Fixed number of questions for Section A
+            form.section_a_count.data,  # User-specified number of questions for Section A
             'structured',  # Short answer type
             form.difficulty.data
         )
         
-        # Generate essay questions for Section B (5 long answer questions)
+        # Generate essay questions for Section B (user-specified number)
         section_b_questions = generate_questions(
             document.content,
-            5,  # Fixed number of questions for Section B
+            form.section_b_count.data,  # User-specified number of questions for Section B
             'essay',  # Essay type
             form.difficulty.data
         )

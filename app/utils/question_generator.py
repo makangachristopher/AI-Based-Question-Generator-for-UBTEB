@@ -416,159 +416,131 @@ def clean_question_text(text):
 def generate_questions_with_perplexity(text, num_questions, question_type, difficulty):
     """
     Generate questions using the Perplexity AI API
-    
-    Args:
-        text (str): Document text
-        num_questions (int): Number of questions to generate
-        question_type (str): Type of questions to generate
-        difficulty (str): Difficulty level
-        
-    Returns:
-        list: List of generated questions with answers
     """
     questions = []
-    
-    # Prepare the prompt based on question type
+
+    # Improved prompt engineering
     if question_type == 'section_a':
-        system_prompt = """You are an expert question generator for educational assessments. 
-        Generate concise, direct questions in the style of Section A exam questions.
-        Each question should start with an action verb like 'Define', 'State', 'Explain', 'Outline', 'Identify', etc.
-        Questions should be brief and focused on specific concepts.
-        
-        Examples of good questions:
-        - Define the term marketing.
-        - State two philosophies under which marketing concept is centered.
-        - Explain the term production concept.
-        - Outline two features of the product concept.
-        - Identify two considerations underlying the societal marketing concept.
-        """
-        
-        user_prompt = f"""Generate {num_questions} {difficulty} difficulty Section A style questions based on the following text. 
-        Make sure each question starts with an action verb (Define, State, Explain, etc.) and is concise.
-        For each question, also provide a brief answer.
-        
-        Text: {text}
-        
-        Format your response as a JSON array with 'question' and 'answer' fields for each question.
-        """
-    elif question_type == 'essay':
-        system_prompt = """You are an expert question generator for educational assessments.
-        Generate essay questions that require detailed answers and critical thinking.
-        Questions should be open-ended and encourage analysis, evaluation, or synthesis.
-        """
-        
-        user_prompt = f"""Generate {num_questions} {difficulty} difficulty essay questions based on the following text.
-        For each question, also provide a brief outline of what a good answer should include.
-        
-        Text: {text}
-        
-        Format your response as a JSON array with 'question' and 'answer' fields for each question.
-        """
-    else:  # structured questions
-        system_prompt = """You are an expert question generator for educational assessments.
-        Generate structured questions that test understanding of specific concepts.
-        Questions should be clear, focused, and have definite answers that can be found in the text.
-        """
-        
-        user_prompt = f"""Generate {num_questions} {difficulty} difficulty structured questions based on the following text.
-        Each question should have a clear answer that can be found in or inferred from the text.
-        For each question, also provide the answer.
-        
-        Text: {text}
-        
-        Format your response as a JSON array with 'question' and 'answer' fields for each question.
-        """
-    
-    try:
-        # Call the Perplexity AI API
-        response = perplexity_client.chat.completions.create(
-            model="r1-1776",  # Using Perplexity's model with online search capability
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt}
-            ],
-            temperature=0.7,
-            max_tokens=2000
+        system_prompt = (
+            "You are an expert exam question generator. Your task is to create high-quality, concise, and direct Section A exam questions for educational assessments. "
+            "Each question must start with an action verb (e.g., Define, State, Explain, Outline, Identify) and be focused on a specific concept from the provided text. "
+            "Each question should be followed by a brief, accurate answer based only on the text."
         )
-        
-        # Extract the response content
-        content = response.choices[0].message.content
-        
-        # Try to parse the JSON response
+        user_prompt = f"""
+Based on the following text, generate exactly {num_questions} Section A style questions of {difficulty} difficulty.
+- Each question must start with an action verb (Define, State, Explain, Outline, Identify, etc.).
+- Each question should be clear, direct, and focused on a specific concept from the text.
+- For each question, provide a brief, accurate answer based only on the text.
+- Format your response as a JSON array, where each item has a 'question' and an 'answer' field.
+
+Text: {text}
+
+Example:
+[
+  {{"question": "Define the term marketing.", "answer": "Marketing is the process of..."}},
+  {{"question": "State two characteristics of a market economy.", "answer": "1. Private ownership 2. Freedom of choice"}}
+]
+"""
+    elif question_type == 'essay':
+        system_prompt = (
+            "You are an expert exam question generator. Your task is to create high-quality, open-ended essay questions that require detailed answers and critical thinking. "
+            "Questions should encourage analysis, evaluation, or synthesis, and each should be followed by a brief outline of what a good answer should include, based only on the text."
+        )
+        user_prompt = f"""
+Based on the following text, generate exactly {num_questions} essay questions of {difficulty} difficulty.
+- Each question should be open-ended and encourage analysis, evaluation, or synthesis.
+- For each question, provide a brief outline of what a good answer should include, based only on the text.
+- Format your response as a JSON array, where each item has a 'question' and an 'answer' field.
+
+Text: {text}
+
+Example:
+[
+  {{"question": "Discuss the impact of technology on modern marketing.", "answer": "A good answer should include: 1. Examples of technology in marketing, 2. Effects on reach and efficiency, 3. Challenges introduced by technology."}}
+]
+"""
+    else:  # structured questions
+        system_prompt = (
+            "You are an expert exam question generator. Your task is to create high-quality, clear, and focused structured questions that test understanding of specific concepts from the provided text. "
+            "Each question should have a definite answer that can be found in or inferred from the text, and each should be followed by a brief, accurate answer."
+        )
+        user_prompt = f"""
+Based on the following text, generate exactly {num_questions} structured questions of {difficulty} difficulty.
+- Each question should be clear, focused, and have a definite answer that can be found in or inferred from the text.
+- For each question, provide a brief, accurate answer based only on the text.
+- Format your response as a JSON array, where each item has a 'question' and an 'answer' field.
+
+Text: {text}
+
+Example:
+[
+  {{"question": "What is the main function of a database index?", "answer": "To speed up data retrieval operations."}}
+]
+"""
+
+    max_retries = 2
+    for attempt in range(max_retries + 1):
         try:
-            # First try to extract JSON if it's wrapped in markdown code blocks
-            if "```json" in content and "```" in content.split("```json")[1]:
-                json_str = content.split("```json")[1].split("```")[0].strip()
-                generated_questions = json.loads(json_str)
-            elif "```" in content and "```" in content.split("```")[1]:
-                json_str = content.split("```")[1].split("```")[0].strip()
-                generated_questions = json.loads(json_str)
-            else:
-                # If no code blocks, try to parse the whole response
-                generated_questions = json.loads(content)
-                
-            # Process the questions
-            for q in generated_questions:
-                if isinstance(q, dict) and 'question' in q and 'answer' in q:
-                    questions.append({
-                        'question': q['question'],
-                        'answer': q['answer'],
-                        'context': text[:200] + '...',  # Use a snippet of the text as context
-                        'type': question_type,
-                        'confidence': 0.9  # DeepSeek responses generally have high confidence
-                    })
-        except json.JSONDecodeError:
-            # If JSON parsing fails, extract questions manually
-            # This is a fallback in case the model doesn't return proper JSON
-            lines = content.split('\n')
-            current_question = None
-            current_answer = ""
-            
-            for line in lines:
-                line = line.strip()
-                if not line:
-                    continue
-                    
-                # Check if line starts with a question pattern (number, Q:, etc.)
-                if re.match(r'^\d+\.\s|^Q\d+:|^Question\s\d+:|^[A-Z][a-z]+:', line):
-                    # Save previous question if exists
-                    if current_question:
+            response = perplexity_client.chat.completions.create(
+                model="r1-1776",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt}
+                ],
+                temperature=0.7,
+                max_tokens=2000
+            )
+            content = response.choices[0].message.content
+            # Try to parse the JSON response
+            try:
+                if "```json" in content and "```" in content.split("```json")[1]:
+                    json_str = content.split("```json")[1].split("```", 1)[0].strip()
+                    generated_questions = json.loads(json_str)
+                elif "```" in content and "```" in content.split("```", 1)[1]:
+                    json_str = content.split("```", 1)[1].split("```", 1)[0].strip()
+                    generated_questions = json.loads(json_str)
+                else:
+                    generated_questions = json.loads(content)
+                # Validate output: must be a list of dicts with 'question' and 'answer', and correct length
+                if (
+                    isinstance(generated_questions, list)
+                    and all(isinstance(q, dict) and 'question' in q and 'answer' in q for q in generated_questions)
+                    and len(generated_questions) == num_questions
+                ):
+                    for q in generated_questions:
                         questions.append({
-                            'question': current_question,
-                            'answer': current_answer.strip(),
+                            'question': q['question'],
+                            'answer': q['answer'],
                             'context': text[:200] + '...',
                             'type': question_type,
-                            'confidence': 0.8
+                            'confidence': 0.95
                         })
-                    
-                    # Extract new question
-                    current_question = re.sub(r'^\d+\.\s|^Q\d+:|^Question\s\d+:|^[A-Z][a-z]+:\s', '', line)
-                    current_answer = ""
-                elif line.startswith('Answer:') or line.startswith('A:'):
-                    current_answer = re.sub(r'^Answer:|^A:', '', line).strip()
-                elif current_question and not current_answer:
-                    current_question += " " + line
-                elif current_answer:
-                    current_answer += "\n" + line
-            
-            # Add the last question
-            if current_question:
-                questions.append({
-                    'question': current_question,
-                    'answer': current_answer.strip(),
-                    'context': text[:200] + '...',
-                    'type': question_type,
-                    'confidence': 0.8
-                })
-    except Exception as e:
-        print(f"Error using Perplexity AI API: {str(e)}")
-        # Fall back to local model if Perplexity fails
-        return generate_questions_with_valhalla(text, num_questions, question_type, difficulty)
-    
+                    break  # Success
+                else:
+                    # If not valid, try again or supplement with local model
+                    if attempt == max_retries:
+                        print("Perplexity output invalid or incomplete, supplementing with local model.")
+                        return generate_questions_with_valhalla(text, num_questions, question_type, difficulty)
+                    continue
+            except Exception as e:
+                if attempt == max_retries:
+                    print(f"Perplexity output parsing failed: {str(e)}. Supplementing with local model.")
+                    return generate_questions_with_valhalla(text, num_questions, question_type, difficulty)
+                continue
+        except Exception as e:
+            if attempt == max_retries:
+                print(f"Error using Perplexity AI API: {str(e)}. Supplementing with local model.")
+                return generate_questions_with_valhalla(text, num_questions, question_type, difficulty)
+            continue
+
     # Ensure we have the requested number of questions
     if len(questions) > num_questions:
         questions = questions[:num_questions]
-    
+    elif len(questions) < num_questions:
+        # Supplement with local model if not enough
+        print("Perplexity returned fewer questions than requested, supplementing with local model.")
+        supplement = generate_questions_with_valhalla(text, num_questions - len(questions), question_type, difficulty)
+        questions.extend(supplement)
     return questions
 
 def generate_section_a_questions(sentences, num_questions, difficulty):

@@ -16,6 +16,10 @@
             </nav>
             <h1 class="mb-3">{{ question_set.title }}</h1>
             <p class="lead">Review, edit, or export this question set.</p>
+            <div class="alert alert-info">
+                <strong>Step 1:</strong> Review and edit your questions and answers below.<br>
+                <strong>Step 2:</strong> When you are satisfied, click <b>Export to PDF</b> to download your exam paper.
+            </div>
         </div>
         <div class="col-md-4 text-end">
             <div class="btn-group" role="group">
@@ -231,6 +235,13 @@
             </div>
         </div>
     {% endif %}
+    <div class="row mt-4">
+        <div class="col text-center">
+            <a href="{{ url_for('questions.export_question_set', question_set_id=question_set.id) }}" class="btn btn-lg btn-success">
+                <i class="fas fa-check-circle me-2"></i>Ready to Export
+            </a>
+        </div>
+    </div>
 </div>
 
 <!-- Delete Question Set Modal -->
