@@ -57,17 +57,18 @@
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.programme_list.label(class="form-label") }}
-                                    {% if form.programme_list.errors %}
-                                        {{ form.programme_list(class="form-control is-invalid") }}
+                                    {{ form.program_id.label(class="form-label") }}
+                                    {% if form.program_id.errors %}
+                                        {{ form.program_id(class="form-select is-invalid") }}
                                         <div class="invalid-feedback">
-                                            {% for error in form.programme_list.errors %}
+                                            {% for error in form.program_id.errors %}
                                                 <span>{{ error }}</span>
                                             {% endfor %}
                                         </div>
                                     {% else %}
-                                        {{ form.programme_list(class="form-control") }}
+                                        {{ form.program_id(class="form-select", id="program_id") }}
                                     {% endif %}
+                                    {{ form.programme_list(type="hidden", id="programme_list") }}
                                 </div>
                             </div>
                         </div>
@@ -75,31 +76,32 @@
                         <div class="row mb-3">
                             <div class="col-md-6">
                                 <div class="mb-3">
-                                    {{ form.paper_name.label(class="form-label") }}
-                                    {% if form.paper_name.errors %}
-                                        {{ form.paper_name(class="form-control is-invalid") }}
+                                    {{ form.paper_id.label(class="form-label") }}
+                                    {% if form.paper_id.errors %}
+                                        {{ form.paper_id(class="form-select is-invalid") }}
                                         <div class="invalid-feedback">
-                                            {% for error in form.paper_name.errors %}
+                                            {% for error in form.paper_id.errors %}
                                                 <span>{{ error }}</span>
                                             {% endfor %}
                                         </div>
                                     {% else %}
-                                        {{ form.paper_name(class="form-control") }}
+                                        {{ form.paper_id(class="form-select", id="paper_id") }}
                                     {% endif %}
+                                    {{ form.paper_name(type="hidden", id="paper_name") }}
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="mb-3">
                                     {{ form.paper_code.label(class="form-label") }}
                                     {% if form.paper_code.errors %}
-                                        {{ form.paper_code(class="form-control is-invalid") }}
+                                        {{ form.paper_code(class="form-control is-invalid", readonly="readonly") }}
                                         <div class="invalid-feedback">
                                             {% for error in form.paper_code.errors %}
                                                 <span>{{ error }}</span>
                                             {% endfor %}
                                         </div>
                                     {% else %}
-                                        {{ form.paper_code(class="form-control") }}
+                                        {{ form.paper_code(class="form-control", readonly="readonly", id="paper_code") }}
                                     {% endif %}
                                 </div>
                             </div>
@@ -256,6 +258,65 @@ if (form) {
         document.body.appendChild(overlay);
     });
 }
+
+// Handle dynamic dropdowns for program and paper selection
+document.addEventListener('DOMContentLoaded', function() {
+    const programSelect = document.getElementById('program_id');
+    const paperSelect = document.getElementById('paper_id');
+    const programmeListField = document.getElementById('programme_list');
+    const paperNameField = document.getElementById('paper_name');
+    const paperCodeField = document.getElementById('paper_code');
+    
+    // When program changes, update paper dropdown
+    if (programSelect) {
+        programSelect.addEventListener('change', function() {
+            const programId = this.value;
+            if (programId && programId != '0') {
+                // Update the programme_list hidden field with the selected program name
+                const programName = this.options[this.selectedIndex].text;
+                programmeListField.value = programName.toUpperCase();
+                
+                // Fetch papers for this program
+                fetch(`/api/get_papers_by_program/${programId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Clear current options
+                        paperSelect.innerHTML = '<option value="0">Select Paper</option>';
+                        
+                        // Add new options
+                        data.forEach(paper => {
+                            const option = document.createElement('option');
+                            option.value = paper.id;
+                            option.textContent = `${paper.name} (${paper.paper_code})`;
+                            option.dataset.paperCode = paper.paper_code;
+                            option.dataset.paperName = paper.name;
+                            paperSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error fetching papers:', error));
+            } else {
+                // Reset paper dropdown
+                paperSelect.innerHTML = '<option value="0">Select Program First</option>';
+                paperCodeField.value = '';
+                paperNameField.value = '';
+            }
+        });
+    }
+    
+    // When paper changes, update paper code and paper name
+    if (paperSelect) {
+        paperSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (this.value && this.value != '0') {
+                paperCodeField.value = selectedOption.dataset.paperCode;
+                paperNameField.value = selectedOption.dataset.paperName;
+            } else {
+                paperCodeField.value = '';
+                paperNameField.value = '';
+            }
+        });
+    }
+});
 </script>
 <style>
 #loading-overlay {

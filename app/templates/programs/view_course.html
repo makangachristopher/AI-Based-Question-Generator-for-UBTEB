@@ -1,0 +1,139 @@
+{% extends "base.html" %}
+
+{% block title %}{{ course.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ course.name }}</h1>
+            {% if course.description %}
+                <p class="lead">{{ course.description }}</p>
+            {% endif %}
+            <p class="text-muted">Program: <a href="{{ url_for('programs.view_program', program_id=course.program_id) }}">{{ course.program.name }}</a></p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('programs.edit_course', course_id=course.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-edit"></i> Edit Course
+                </a>
+                <a href="{{ url_for('programs.create_paper', course_id=course.id) }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> Add Paper
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Exam Papers</h3>
+        </div>
+        <div class="card-body">
+            {% if papers %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Paper Name</th>
+                                <th>Paper Code</th>
+                                <th>Description</th>
+                                <th>Documents</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for paper in papers %}
+                            <tr>
+                                <td>{{ paper.name }}</td>
+                                <td><span class="badge bg-secondary">{{ paper.paper_code }}</span></td>
+                                <td>
+                                    {% if paper.description %}
+                                        {{ paper.description[:50] }}{% if paper.description|length > 50 %}...{% endif %}
+                                    {% else %}
+                                        <span class="text-muted">No description</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ paper.documents|length }}</td>
+                                <td>{{ paper.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('programs.view_paper', paper_id=paper.id) }}" class="btn btn-outline-primary">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="{{ url_for('programs.edit_paper', paper_id=paper.id) }}" class="btn btn-outline-secondary">
+                                            <i class="fas fa-edit"></i> Edit
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deletePaperModal{{ paper.id }}">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Delete Paper Modal -->
+                            <div class="modal fade" id="deletePaperModal{{ paper.id }}" tabindex="-1" aria-labelledby="deletePaperModalLabel{{ paper.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="deletePaperModalLabel{{ paper.id }}">Confirm Delete</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Are you sure you want to delete the paper "{{ paper.name }}" ({{ paper.paper_code }})? This will also delete all documents associated with this paper.
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <form action="{{ url_for('programs.delete_paper', paper_id=paper.id) }}" method="post">
+                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    <h4 class="alert-heading">No Papers Yet!</h4>
+                    <p>You haven't added any exam papers to this course yet.</p>
+                    <hr>
+                    <p class="mb-0">Click the "Add Paper" button to get started.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('programs.view_program', program_id=course.program_id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Program
+        </a>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deleteCourseModal">
+            <i class="fas fa-trash"></i> Delete Course
+        </button>
+    </div>
+
+    <!-- Delete Course Modal -->
+    <div class="modal fade" id="deleteCourseModal" tabindex="-1" aria-labelledby="deleteCourseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deleteCourseModalLabel">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete the course "{{ course.name }}"? This will also delete all papers and documents associated with this course.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('programs.delete_course', course_id=course.id) }}" method="post">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -41,12 +41,12 @@ def create_app():
     from app.routes.main import main
     from app.routes.auth import auth
     from app.routes.questions import questions
-    from app.routes.courses import courses
+    from app.routes.programs import programs
     
     app.register_blueprint(main)
     app.register_blueprint(auth)
     app.register_blueprint(questions)
-    app.register_blueprint(courses)
+    app.register_blueprint(programs)
     
     # Create database tables
     with app.app_context():

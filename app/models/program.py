@@ -1,8 +1,8 @@
 from datetime import datetime
 from app import db
 
-class Course(db.Model):
-    """Course model for organizing papers within a program"""
+class Program(db.Model):
+    """Program model for organizing courses"""
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
@@ -10,11 +10,9 @@ class Course(db.Model):
     
     # Foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-    program_id = db.Column(db.Integer, db.ForeignKey('program.id'), nullable=False)
     
     # Relationships
-    papers = db.relationship('Paper', backref='course', lazy=True, cascade="all, delete-orphan")
-    documents = db.relationship('Document', backref='course', lazy=True, cascade="all, delete-orphan")
+    courses = db.relationship('Course', backref='program', lazy=True, cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"Course('{self.name}')"
+        return f"Program('{self.name}')"

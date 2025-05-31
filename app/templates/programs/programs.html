@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}Programs{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>Programs</h1>
+            <p class="lead">Manage your academic programs</p>
+        </div>
+        <div class="col-auto">
+            <a href="{{ url_for('programs.create_program') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> New Program
+            </a>
+        </div>
+    </div>
+
+    {% if programs %}
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for program in programs %}
+        <div class="col">
+            <div class="card h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ program.name }}</h5>
+                    <p class="card-text">
+                        {% if program.description %}
+                            {{ program.description }}
+                        {% else %}
+                            <span class="text-muted">No description</span>
+                        {% endif %}
+                    </p>
+                    <p class="card-text">
+                        <small class="text-muted">Created: {{ program.created_at.strftime('%Y-%m-%d') }}</small>
+                    </p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <div class="d-flex justify-content-between">
+                        <a href="{{ url_for('programs.view_program', program_id=program.id) }}" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-eye"></i> View
+                        </a>
+                        <a href="{{ url_for('programs.edit_program', program_id=program.id) }}" class="btn btn-sm btn-outline-secondary">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteModal{{ program.id }}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delete Modal -->
+        <div class="modal fade" id="deleteModal{{ program.id }}" tabindex="-1" aria-labelledby="deleteModalLabel{{ program.id }}" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="deleteModalLabel{{ program.id }}">Confirm Delete</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        Are you sure you want to delete the program "{{ program.name }}"? This will also delete all courses, papers, and documents associated with this program.
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <form action="{{ url_for('programs.delete_program', program_id=program.id) }}" method="post">
+                            <button type="submit" class="btn btn-danger">Delete</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="alert alert-info" role="alert">
+        <h4 class="alert-heading">No Programs Yet!</h4>
+        <p>You haven't created any programs yet. Programs help you organize your courses and exam papers.</p>
+        <hr>
+        <p class="mb-0">Click the "New Program" button to get started.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

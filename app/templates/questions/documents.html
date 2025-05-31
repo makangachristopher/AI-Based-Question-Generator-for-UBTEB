@@ -38,6 +38,7 @@
                                         <th>Title</th>
                                         <th>Filename</th>
                                         <th>Course</th>
+                                        <th>Paper</th>
                                         <th>Questions</th>
                                         <th>Created</th>
                                         <th>Actions</th>
@@ -50,8 +51,17 @@
                                             <td>{{ document.filename }}</td>
                                             <td>
                                                 {% if document.course %}
-                                                    <a href="{{ url_for('courses.view_course', course_id=document.course.id) }}">
-                                                        {{ document.course.title }}
+                                                    <a href="{{ url_for('programs.view_course', course_id=document.course.id) }}">
+                                                        {{ document.course.name }}
+                                                    </a>
+                                                {% else %}
+                                                    <span class="text-muted">None</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if document.paper %}
+                                                    <a href="{{ url_for('programs.view_paper', paper_id=document.paper.id) }}">
+                                                        {{ document.paper.name }} ({{ document.paper.paper_code }})
                                                     </a>
                                                 {% else %}
                                                     <span class="text-muted">None</span>

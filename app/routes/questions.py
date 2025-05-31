@@ -1,17 +1,20 @@
 import os
 import json
+from datetime import date
 from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file, session
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
 from app import db
 from app.models.document import Document
 from app.models.question import Question, QuestionSet
+from app.models.course import Course
+from app.models.program import Program
+from app.models.paper import Paper
 from app.forms.document_forms import DocumentUploadForm, QuestionGenerationForm
 from app.utils.document_processor import process_document
 from app.utils.question_generator import generate_questions
 from app.utils.pdf_exporter import export_to_pdf
 import tempfile
-from app.models.course import Course
 from datetime import date
 import traceback
 
@@ -28,9 +31,27 @@ def upload_document():
     """Document upload route"""
     form = DocumentUploadForm()
     
-    # Populate the course choices
-    user_courses = Course.query.filter_by(user_id=current_user.id).all()
-    form.course_id.choices = [(0, 'No Course')] + [(course.id, course.title) for course in user_courses]
+    # Populate the program choices
+    user_programs = Program.query.filter_by(user_id=current_user.id).all()
+    form.program_id.choices = [(0, 'No Program')] + [(program.id, program.name) for program in user_programs]
+    
+    # Initialize course and paper choices with empty lists
+    form.course_id.choices = [(0, 'Select Program First')]
+    form.paper_id.choices = [(0, 'Select Course First')]
+    
+    if request.method == 'POST':
+        # If form is submitted, update the choices based on selected program and course
+        program_id = request.form.get('program_id', type=int)
+        if program_id and program_id != 0:
+            # Update course choices
+            courses = Course.query.filter_by(program_id=program_id, user_id=current_user.id).all()
+            form.course_id.choices = [(0, 'Select Course')] + [(c.id, c.name) for c in courses]
+            
+            course_id = request.form.get('course_id', type=int)
+            if course_id and course_id != 0:
+                # Update paper choices
+                papers = Paper.query.filter_by(course_id=course_id, user_id=current_user.id).all()
+                form.paper_id.choices = [(0, 'Select Paper')] + [(p.id, p.name) for p in papers]
     
     if form.validate_on_submit():
         try:
@@ -60,9 +81,15 @@ def upload_document():
                         user_id=current_user.id
                     )
                     
-                    # Set course_id if a course was selected
-                    if form.course_id.data != 0:
-                        document.course_id = form.course_id.data
+                    # Set program, course, and paper IDs if selected
+                    if form.program_id.data != 0:
+                        # If a program is selected, we might also have a course and paper
+                        if form.course_id.data != 0:
+                            document.course_id = form.course_id.data
+                            
+                            # If a course is selected, we might also have a paper
+                            if form.paper_id.data != 0:
+                                document.paper_id = form.paper_id.data
                     
                     db.session.add(document)
                     db.session.commit()
@@ -153,6 +180,52 @@ def generate_questions_form(document_id):
     # Set default date to today if not provided
     if not form.exam_date.data:
         form.exam_date.data = date.today()
+    
+    # Populate the program choices
+    user_programs = Program.query.filter_by(user_id=current_user.id).all()
+    form.program_id.choices = [(0, 'Select Program')] + [(program.id, program.name) for program in user_programs]
+    
+    # Initialize paper choices
+    form.paper_id.choices = [(0, 'Select Program First')]
+    
+    # If document has a course, pre-select it
+    if document.course:
+        # Get the program for this course
+        program = Program.query.get(document.course.program_id)
+        if program:
+            form.program_id.data = program.id
+            
+            # Get papers for this course
+            papers = Paper.query.filter_by(course_id=document.course.id).all()
+            form.paper_id.choices = [(0, 'Select Paper')] + [(p.id, f"{p.name} ({p.paper_code})") for p in papers]
+            
+            # If document has a paper, pre-select it
+            if document.paper:
+                form.paper_id.data = document.paper.id
+                form.paper_name.data = document.paper.name
+                form.paper_code.data = document.paper.paper_code
+                
+                # Set programme_list from the program name
+                form.programme_list.data = program.name.upper()
+    
+    # Handle POST request with form validation
+    if request.method == 'POST':
+        # Get the selected program and paper IDs from the form
+        program_id = request.form.get('program_id', type=int)
+        paper_id = request.form.get('paper_id', type=int)
+        
+        # If a program was selected, update the form's programme_list value
+        if program_id and program_id != 0:
+            program = Program.query.get(program_id)
+            if program:
+                form.programme_list.data = program.name.upper()
+        
+        # If a paper was selected, update the form's paper_name and paper_code values
+        if paper_id and paper_id != 0:
+            paper = Paper.query.get(paper_id)
+            if paper:
+                form.paper_name.data = paper.name
+                form.paper_code.data = paper.paper_code
     
     if form.validate_on_submit():
         # Generate structured questions for Section A (user-specified number)

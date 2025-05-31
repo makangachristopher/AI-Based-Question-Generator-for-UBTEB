@@ -18,6 +18,8 @@ class User(db.Model, UserMixin):
     documents = db.relationship('Document', backref='author', lazy=True, cascade="all, delete-orphan")
     questions = db.relationship('Question', backref='author', lazy=True, cascade="all, delete-orphan")
     courses = db.relationship('Course', backref='author', lazy=True, cascade="all, delete-orphan")
+    programs = db.relationship('Program', backref='author', lazy=True, cascade="all, delete-orphan")
+    papers = db.relationship('Paper', backref='author', lazy=True, cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"User('{self.username}', '{self.email}')" 

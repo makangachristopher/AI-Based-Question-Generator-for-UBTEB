@@ -13,7 +13,13 @@ class DocumentUploadForm(FlaskForm):
         FileRequired(),
         FileAllowed(['pdf', 'docx', 'doc'], 'Only PDF and Word documents are allowed!')
     ])
-    course_id = SelectField('Course (Optional)', 
+    program_id = SelectField('Program', 
+                        validators=[Optional()],
+                        coerce=int)
+    course_id = SelectField('Course', 
+                        validators=[Optional()],
+                        coerce=int)
+    paper_id = SelectField('Paper', 
                         validators=[Optional()],
                         coerce=int)
     submit = SubmitField('Upload')
@@ -23,6 +29,11 @@ class QuestionGenerationForm(FlaskForm):
     # Exam header information
     exam_series = StringField('Exam Series', validators=[DataRequired()], 
                              default='JULY 2023')
+    # Program selection (renamed from programme_list to match our model)
+    program_id = SelectField('Program', validators=[DataRequired()], coerce=int)
+    # Paper selection
+    paper_id = SelectField('Paper', validators=[DataRequired()], coerce=int)
+    # Hidden fields for display purposes
     programme_list = StringField('Programme List', validators=[DataRequired()], 
                                 default='DIPLOMA IN INFORMATION TECHNOLOGY')
     paper_name = StringField('Paper Name', validators=[DataRequired()], 

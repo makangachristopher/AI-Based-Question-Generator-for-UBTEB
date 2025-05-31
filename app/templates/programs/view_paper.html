@@ -1,0 +1,134 @@
+{% extends "base.html" %}
+
+{% block title %}{{ paper.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row mb-4">
+        <div class="col">
+            <h1>{{ paper.name }} <span class="badge bg-secondary">{{ paper.paper_code }}</span></h1>
+            {% if paper.description %}
+                <p class="lead">{{ paper.description }}</p>
+            {% endif %}
+            <p class="text-muted">
+                Course: <a href="{{ url_for('programs.view_course', course_id=paper.course_id) }}">{{ paper.course.name }}</a> | 
+                Program: <a href="{{ url_for('programs.view_program', program_id=paper.course.program_id) }}">{{ paper.course.program.name }}</a>
+            </p>
+        </div>
+        <div class="col-auto">
+            <div class="btn-group" role="group">
+                <a href="{{ url_for('programs.edit_paper', paper_id=paper.id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-edit"></i> Edit Paper
+                </a>
+                <a href="{{ url_for('questions.upload_document') }}" class="btn btn-primary">
+                    <i class="fas fa-upload"></i> Upload Document
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-header">
+            <h3>Documents</h3>
+        </div>
+        <div class="card-body">
+            {% if documents %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Document Title</th>
+                                <th>Filename</th>
+                                <th>Question Sets</th>
+                                <th>Created</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for document in documents %}
+                            <tr>
+                                <td>{{ document.title }}</td>
+                                <td>{{ document.filename }}</td>
+                                <td>{{ document.question_sets|length }}</td>
+                                <td>{{ document.created_at.strftime('%Y-%m-%d') }}</td>
+                                <td>
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="{{ url_for('questions.view_document', document_id=document.id) }}" class="btn btn-outline-primary">
+                                            <i class="fas fa-eye"></i> View
+                                        </a>
+                                        <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" class="btn btn-outline-success">
+                                            <i class="fas fa-question"></i> Generate Questions
+                                        </a>
+                                        <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteDocumentModal{{ document.id }}">
+                                            <i class="fas fa-trash"></i> Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+
+                            <!-- Delete Document Modal -->
+                            <div class="modal fade" id="deleteDocumentModal{{ document.id }}" tabindex="-1" aria-labelledby="deleteDocumentModalLabel{{ document.id }}" aria-hidden="true">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title" id="deleteDocumentModalLabel{{ document.id }}">Confirm Delete</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            Are you sure you want to delete the document "{{ document.title }}"? This will also delete all questions generated from this document.
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                            <form action="{{ url_for('questions.delete_document', document_id=document.id) }}" method="post">
+                                                <button type="submit" class="btn btn-danger">Delete</button>
+                                            </form>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info" role="alert">
+                    <h4 class="alert-heading">No Documents Yet!</h4>
+                    <p>You haven't uploaded any documents for this exam paper yet.</p>
+                    <hr>
+                    <p class="mb-0">Click the "Upload Document" button to get started.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="d-flex justify-content-between mt-4">
+        <a href="{{ url_for('programs.view_course', course_id=paper.course_id) }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Course
+        </a>
+        <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#deletePaperModal">
+            <i class="fas fa-trash"></i> Delete Paper
+        </button>
+    </div>
+
+    <!-- Delete Paper Modal -->
+    <div class="modal fade" id="deletePaperModal" tabindex="-1" aria-labelledby="deletePaperModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="deletePaperModalLabel">Confirm Delete</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    Are you sure you want to delete the paper "{{ paper.name }}" ({{ paper.paper_code }})? This will also delete all documents associated with this paper.
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <form action="{{ url_for('programs.delete_paper', paper_id=paper.id) }}" method="post">
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

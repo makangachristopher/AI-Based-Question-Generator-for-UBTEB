@@ -13,10 +13,11 @@ class Document(db.Model):
     # Foreign keys
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     course_id = db.Column(db.Integer, db.ForeignKey('course.id'), nullable=True)
+    paper_id = db.Column(db.Integer, db.ForeignKey('paper.id'), nullable=True)
     
     # Relationships
     questions = db.relationship('Question', backref='document', lazy=True, cascade="all, delete-orphan")
     question_sets = db.relationship('QuestionSet', backref='document', lazy=True, cascade="all, delete-orphan")
     
     def __repr__(self):
-        return f"Document('{self.title}', '{self.filename}')" 
+        return f"Document('{self.title}', '{self.filename}')"
