@@ -1,214 +1,435 @@
-{% extends "base.html" %} {% block title %}Dashboard - AI Based Question
-Generation System {% endblock %} {% block content %}
-<div class="container py-5">
-  <div class="row mb-4">
-    <div class="col-md-8">
-      <h1>Dashboard</h1>
-      <p class="lead">Welcome back, {{ current_user.username }}! Manage your documents and generated questions here.</p>
-    </div>
-  </div>
-
-  <div class="row mb-4">
-    <!-- Documents Card -->
-    <div class="col-md-4 mb-4">
-      <div class="card h-100 shadow-sm border-primary">
-        <div class="card-body text-center">
-          <div class="card-icon mb-3">
-            <i class="fas fa-file-alt fa-3x text-primary"></i>
-          </div>
-          <h3 class="card-title">Documents</h3>
-          <p class="card-text">Upload and manage your documents to generate questions.</p>
-          <div class="card-actions">
-            <a href="{{ url_for('questions.list_documents') }}" class="btn btn-primary mb-2 w-100">View Documents</a>
-            <a href="{{ url_for('questions.upload_document') }}" class="btn btn-outline-primary w-100">Upload New Document</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Courses Card -->
-    <div class="col-md-4 mb-4">
-      <div class="card h-100 shadow-sm border-success">
-        <div class="card-body text-center">
-          <div class="card-icon mb-3">
-            <i class="fas fa-graduation-cap fa-3x text-success"></i>
-          </div>
-          <h3 class="card-title">Programs</h3>
-          <p class="card-text">Organize your courses, papers, and documents in a hierarchical structure.</p>
-          <div class="card-actions">
-            <a href="{{ url_for('programs.list_programs') }}" class="btn btn-success mb-2 w-100">View Programs</a>
-            <a href="{{ url_for('programs.create_program') }}" class="btn btn-outline-success w-100">Create New Program</a>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Questions Card -->
-    <div class="col-md-4 mb-4">
-      <div class="card h-100 shadow-sm border-info">
-        <div class="card-body text-center">
-          <div class="card-icon mb-3">
-            <i class="fas fa-question-circle fa-3x text-info"></i>
-          </div>
-          <h3 class="card-title">Generate Questions</h3>
-          <p class="card-text">Generate questions from your documents using AI technology.</p>
-          <div class="card-actions">
-            <a href="{{ url_for('questions.list_documents') }}" class="btn btn-info mb-2 w-100">Select Document</a>
-            <a href="{{ url_for('questions.upload_document') }}" class="btn btn-outline-info w-100">Upload & Generate</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Quick Stats -->
+{% extends "base.html" %} {% block title %}Dashboard - AI Based Question Generation System {% endblock %} {% block content %}
+<div class="container-fluid px-5 py-5">
+  <!-- Header Section -->
   <div class="row mb-5">
-    <div class="col-md-4">
-      <div class="card text-center h-100">
-        <div class="card-body">
-          <h5 class="card-title">Documents</h5>
-          <p class="card-text display-4">{{ user.documents|length }}</p>
-          <a
-            href="{{ url_for('questions.list_documents') }}"
-            class="btn btn-primary"
-            >View Documents</a
-          >
+    <div class="col-12">
+      <div class="d-flex justify-content-between align-items-center">
+        <div>
+          <h1 class="display-6 fw-light mb-2">Welcome, {{ current_user.username }}</h1>
+          <p class="text-muted mb-0">Your question generation workspace</p>
         </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card text-center h-100">
-        <div class="card-body">
-          <h5 class="card-title">Questions</h5>
-          <p class="card-text display-4">{{ user.questions|length }}</p>
-          <a
-            href="{{ url_for('questions.list_documents') }}"
-            class="btn btn-primary"
-            >View Questions</a
-          >
-        </div>
-      </div>
-    </div>
-    <div class="col-md-4">
-      <div class="card text-center h-100">
-        <div class="card-body">
-          <h5 class="card-title">Account Age</h5>
-          <p class="card-text display-4">
-            {{ ((now - user.created_at).days)|default(0) }} days
-          </p>
-          <a href="{{ url_for('auth.profile') }}" class="btn btn-primary"
-            >View Profile</a
-          >
+        <div class="header-actions">
+          <a href="{{ url_for('programs.create_program') }}" class="btn btn-primary">
+            <i class="fas fa-plus me-2"></i>New Program
+          </a>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Quick Actions -->
-  <div class="row mb-5">
-    <div class="col-md-12">
-      <h2 class="mb-4">Quick Actions</h2>
-    </div>
-    <div class="col-md-6">
-      <div class="card mb-4">
-        <div class="card-body">
-          <h5 class="card-title">
-            <i class="fas fa-file-upload me-2"></i>Upload Document
-          </h5>
-          <p class="card-text">
-            Upload a new PDF or Word document to generate questions.
-          </p>
-          <a
-            href="{{ url_for('questions.upload_document') }}"
-            class="btn btn-primary"
-            >Upload Document</a
-          >
+  <div class="row g-4">
+    <!-- Main Program Card -->
+    <div class="col-lg-8">
+      <div class="program-card">
+        <div class="d-flex align-items-center mb-4">
+          <div class="program-icon me-4">
+            <i class="fas fa-graduation-cap"></i>
+          </div>
+          <div>
+            <h2 class="fw-light mb-1">Program Management</h2>
+            <p class="text-muted mb-0">Organize your educational content</p>
+          </div>
         </div>
-      </div>
-    </div>
-    <div class="col-md-6">
-      <div class="card mb-4">
-        <div class="card-body">
-          <h5 class="card-title">
-            <i class="fas fa-list me-2"></i>View Documents
-          </h5>
-          <p class="card-text">
-            View and manage your uploaded documents and generated questions.
-          </p>
-          <a
-            href="{{ url_for('questions.list_documents') }}"
-            class="btn btn-primary"
-            >View Documents</a
-          >
-        </div>
-      </div>
-    </div>
-  </div>
 
-  <!-- Recent Activity -->
-  <div class="row">
-    <div class="col-md-12">
-      <h2 class="mb-4">Recent Documents</h2>
-      {% if user.documents %}
-      <div class="table-responsive">
-        <table class="table table-hover">
-          <thead class="table-light">
-            <tr>
-              <th>Title</th>
-              <th>Type</th>
-              <th>Questions</th>
-              <th>Created</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for document in user.documents|sort(attribute='created_at', reverse=True)|batch(5)|first|default([]) %}
-            <tr>
-              <td>{{ document.title or 'Untitled Document' }}</td>
-              <td>{{ document.question_type|title }}</td>
-              <td>{{ document.questions|length }}</td>
-              <td>{{ document.created_at.strftime('%Y-%m-%d %H:%M') }}</td>
-              <td>
-                <a href="{{ url_for('questions.view_document', document_id=document.id) }}" 
-                   class="btn btn-sm btn-primary">
-                  <i class="fas fa-eye me-1"></i>View
-                </a>
-                <a href="{{ url_for('questions.generate_questions_form', document_id=document.id) }}" 
-                   class="btn btn-sm btn-success">
-                  <i class="fas fa-sync me-1"></i>Regenerate
-                </a>
-              </td>
-            </tr>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <a href="{{ url_for('programs.create_program') }}" class="action-card">
+              <div class="action-icon">
+                <i class="fas fa-plus"></i>
+              </div>
+              <div class="action-content">
+                <h3 class="fw-light">Create Program</h3>
+                <p class="text-muted small mb-0">Start a new educational program</p>
+              </div>
+            </a>
+          </div>
+          <div class="col-md-6">
+            <a href="{{ url_for('programs.list_programs') }}" class="action-card">
+              <div class="action-icon">
+                <i class="fas fa-list"></i>
+              </div>
+              <div class="action-content">
+                <h3 class="fw-light">View Programs</h3>
+                <p class="text-muted small mb-0">Manage existing programs</p>
+              </div>
+            </a>
+          </div>
+        </div>
+
+        {% if user.programs %}
+        <div class="recent-programs mt-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h3 class="fw-light mb-0">Recent Programs</h3>
+            <a href="{{ url_for('programs.list_programs') }}" class="text-primary text-decoration-none">View all</a>
+          </div>
+          <div class="row g-3">
+            {% for program in user.programs|sort(attribute='created_at', reverse=True)|batch(2)|first|default([]) %}
+            <div class="col-md-6">
+              <a href="{{ url_for('programs.view_program', program_id=program.id) }}" class="program-item">
+                <div class="d-flex justify-content-between align-items-start">
+                  <div>
+                    <h4 class="fw-light mb-1">{{ program.name }}</h4>
+                    <p class="text-muted small mb-0">{{ program.description|truncate(50) }}</p>
+                  </div>
+                  <span class="badge">{{ program.documents|length }} docs</span>
+                </div>
+              </a>
+            </div>
             {% endfor %}
-          </tbody>
-        </table>
+          </div>
+        </div>
+        {% endif %}
       </div>
-      {% if user.documents|length > 5 %}
-      <div class="text-center mt-3">
-        <a
-          href="{{ url_for('questions.list_documents') }}"
-          class="btn btn-outline-primary"
-        >
-          <i class="fas fa-list me-2"></i>View All Documents
-        </a>
+    </div>
+
+    <!-- Quick Actions & Stats Section -->
+    <div class="col-lg-4">
+      <!-- Quick Actions -->
+      <div class="quick-actions-card mb-4">
+        <h3 class="fw-light mb-3">Quick Actions</h3>
+        <div class="d-grid gap-3">
+          <a href="{{ url_for('questions.upload_document') }}" class="quick-action-btn">
+            <i class="fas fa-file-upload"></i>
+            <span>Upload Document</span>
+          </a>
+          <a href="{{ url_for('questions.list_documents') }}" class="quick-action-btn">
+            <i class="fas fa-sync"></i>
+            <span>Generate Questions</span>
+          </a>
+          <a href="{{ url_for('questions.list_documents') }}" class="quick-action-btn">
+            <i class="fas fa-eye"></i>
+            <span>View Questions</span>
+          </a>
+        </div>
       </div>
-      {% endif %} {% else %}
-      <div class="alert alert-info">
-        <p class="mb-0">
-          You haven't generated any questions yet. Use the form above to get
-          started!
-        </p>
+
+      <!-- Statistics Overview -->
+      <div class="stats-card">
+        <h3 class="fw-light mb-3">Statistics Overview</h3>
+        <div class="stats-grid">
+          <div class="stat-item">
+            <div class="stat-icon">
+              <i class="fas fa-graduation-cap"></i>
+            </div>
+            <div class="stat-info">
+              <h4 class="fw-light mb-0">{{ user.programs|length }}</h4>
+              <p class="text-muted small mb-0">Programs</p>
+            </div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">
+              <i class="fas fa-file-alt"></i>
+            </div>
+            <div class="stat-info">
+              <h4 class="fw-light mb-0">{{ user.documents|length }}</h4>
+              <p class="text-muted small mb-0">Documents</p>
+            </div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-icon">
+              <i class="fas fa-question-circle"></i>
+            </div>
+            <div class="stat-info">
+              <h4 class="fw-light mb-0">{{ user.questions|length }}</h4>
+              <p class="text-muted small mb-0">Questions</p>
+            </div>
+          </div>
+        </div>
       </div>
-      {% endif %}
     </div>
   </div>
 </div>
-{% endblock %} {% block scripts %}
+
+<style>
+.container-fluid {
+  max-width: 1400px;
+}
+
+/* Header Styles */
+.header-actions .btn {
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-weight: 500;
+  background: #198754;
+  border: none;
+}
+
+.header-actions .btn:hover {
+  background: #157347;
+}
+
+/* Program Card Styles */
+.program-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  height: 100%;
+  border-top: 4px solid #198754;
+}
+
+.program-icon {
+  width: 72px;
+  height: 72px;
+  background: rgba(25, 135, 84, 0.1);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.program-icon i {
+  font-size: 2rem;
+  color: #198754;
+}
+
+/* Action Card Styles */
+.action-card {
+  display: block;
+  padding: 1.5rem;
+  background: #f8f9fa;
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+}
+
+.action-card:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  color: inherit;
+  transform: translateY(-2px);
+}
+
+.action-card:first-child {
+  border-top: 4px solid #0dcaf0;
+}
+
+.action-card:last-child {
+  border-top: 4px solid #fd7e14;
+}
+
+.action-icon {
+  width: 48px;
+  height: 48px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 1rem;
+}
+
+.action-card:first-child .action-icon {
+  background: rgba(13, 202, 240, 0.1);
+}
+
+.action-card:last-child .action-icon {
+  background: rgba(253, 126, 20, 0.1);
+}
+
+.action-card:first-child .action-icon i {
+  color: #0dcaf0;
+}
+
+.action-card:last-child .action-icon i {
+  color: #fd7e14;
+}
+
+.action-content h3 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* Program Item Styles */
+.program-item {
+  display: block;
+  padding: 1.25rem;
+  background: #f8f9fa;
+  border-radius: 16px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s ease;
+  border-top: 4px solid #6f42c1;
+}
+
+.program-item:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  color: inherit;
+}
+
+.program-item h4 {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.program-item .badge {
+  background: rgba(111, 66, 193, 0.1);
+  color: #6f42c1;
+  font-weight: 500;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+}
+
+/* Quick Actions Card Styles */
+.quick-actions-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border-top: 4px solid #0d6efd;
+}
+
+.quick-action-btn {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  text-decoration: none;
+  color: #495057;
+  transition: all 0.2s ease;
+}
+
+.quick-action-btn:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  color: #0d6efd;
+  transform: translateY(-2px);
+}
+
+.quick-action-btn i {
+  font-size: 1.25rem;
+  margin-right: 1rem;
+  width: 24px;
+  text-align: center;
+}
+
+.quick-action-btn:nth-child(1) i {
+  color: #0d6efd;
+}
+
+.quick-action-btn:nth-child(2) i {
+  color: #198754;
+}
+
+.quick-action-btn:nth-child(3) i {
+  color: #fd7e14;
+}
+
+.quick-action-btn span {
+  font-weight: 500;
+}
+
+/* Stats Card Styles */
+.stats-card {
+  background: #fff;
+  border-radius: 20px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  border-top: 4px solid #6f42c1;
+}
+
+.stats-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.stat-item {
+  display: flex;
+  align-items: center;
+  padding: 1rem;
+  background: #f8f9fa;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transform: translateY(-2px);
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  background: #fff;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 1rem;
+}
+
+.stat-item:nth-child(1) .stat-icon {
+  background: rgba(25, 135, 84, 0.1);
+}
+
+.stat-item:nth-child(2) .stat-icon {
+  background: rgba(13, 202, 240, 0.1);
+}
+
+.stat-item:nth-child(3) .stat-icon {
+  background: rgba(253, 126, 20, 0.1);
+}
+
+.stat-item:nth-child(1) .stat-icon i {
+  color: #198754;
+}
+
+.stat-item:nth-child(2) .stat-icon i {
+  color: #0dcaf0;
+}
+
+.stat-item:nth-child(3) .stat-icon i {
+  color: #fd7e14;
+}
+
+.stat-info h4 {
+  font-size: 1.25rem;
+  margin: 0;
+}
+
+.text-primary {
+  color: #198754 !important;
+}
+
+@media (max-width: 992px) {
+  .container-fluid {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .program-card {
+    margin-bottom: 1.5rem;
+  }
+  
+  .header-actions {
+    margin-top: 1rem;
+  }
+  
+  .header-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .program-icon {
+    margin-bottom: 1rem;
+  }
+  
+  .action-card, .program-item, .stat-item {
+    margin-bottom: 1rem;
+  }
+}
+</style>
+{% endblock %}
+
+{% block scripts %}
 <script>
-  // Add current date for account age calculation
   document.addEventListener("DOMContentLoaded", function () {
-    // This would be handled by the server-side template in a real app
-    // Just adding this as a placeholder
+    // Add any necessary JavaScript here
   });
 </script>
 {% endblock %}

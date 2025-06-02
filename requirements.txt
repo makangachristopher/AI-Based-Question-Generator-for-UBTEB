@@ -15,3 +15,6 @@ Flask-SQLAlchemy
 SQLAlchemy
 bcrypt
 pdfkit
+pdfminer.six
+torch
+sentencepiece
